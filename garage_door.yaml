@@ -1,0 +1,96 @@
+substitutions:
+  device_name: garage-door
+  friendly_name: Garage Door
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+
+esp8266:
+  board: d1_mini
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: !secret ap_fallback_password
+
+captive_portal:
+
+logger:
+
+api:
+  encryption:
+    key: !secret esphome_api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# ── Reed switches ────────────────────────────────────────────────────────────
+# Prototype uses D1 Mini GPIO4/GPIO5 (D2/D1 labels) — same as final C3 Mini.
+# Internal pullups; inverted so TRUE = sensor active (magnet present).
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO4      # D2 on D1 Mini
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Door Closed Sensor"
+    id: door_closed
+    filters:
+      - delayed_on: 50ms
+
+  - platform: gpio
+    pin:
+      number: GPIO5      # D1 on D1 Mini
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Door Open Sensor"
+    id: door_open
+    filters:
+      - delayed_on: 50ms
+
+# ── SSR trigger ──────────────────────────────────────────────────────────────
+# Prototype: GPIO14 (D5). Final C3 Mini: GPIO10.
+# internal: true keeps this off the HA entity list — controlled only via cover.
+
+switch:
+  - platform: gpio
+    pin: GPIO14          # D5 on D1 Mini — change to GPIO10 for final C3 Mini build
+    id: garage_trigger
+    restore_mode: ALWAYS_OFF
+    internal: true
+
+# ── Pulse script ─────────────────────────────────────────────────────────────
+# 300ms momentary closure — equivalent to pressing the wall button.
+
+script:
+  - id: trigger_pulse
+    then:
+      - switch.turn_on: garage_trigger
+      - delay: 300ms
+      - switch.turn_off: garage_trigger
+
+# ── Garage door cover ────────────────────────────────────────────────────────
+# State derived from reed switches. All three actions send the same impulse —
+# the Marantec toggles on each pulse: open → stop → close → stop → open.
+# Returning {} (no value) when both sensors are inactive means door is moving;
+# ESPHome infers OPENING or CLOSING from the last command.
+
+cover:
+  - platform: template
+    name: "Garage Door"
+    device_class: garage
+    lambda: |-
+      if (id(door_closed).state) return COVER_CLOSED;
+      if (id(door_open).state)   return COVER_OPEN;
+      return {};
+    open_action:
+      - script.execute: trigger_pulse
+    close_action:
+      - script.execute: trigger_pulse
+    stop_action:
+      - script.execute: trigger_pulse
