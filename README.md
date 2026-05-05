@@ -50,6 +50,8 @@ ESP32U
 
 ## Wiring
 
+![Board Layout](Board/Garage%20Layout%20ESP32C3%2024x10.png)
+
 See [`breadboard.md`](breadboard.md) for full wiring diagrams and bench test procedure.
 
 ### Marantec XB03 Terminal Block
@@ -101,22 +103,15 @@ Subsequent updates are OTA over WiFi.
 
 ## HomeKit via Homebridge
 
-Install the `homebridge-homeassistant` plugin, then add this platform to your Homebridge `config.json`:
+The [Homebridge addon](https://github.com/homebridge/homebridge-homeassistant) runs inside Home Assistant — no separate server or access token required.
 
-```json
-{
-    "platform": "HomeAssistant",
-    "name": "Garage Door",
-    "host": "http://homeassistant.local:8123",
-    "token": "YOUR_HA_LONG_LIVED_TOKEN",
-    "supported_types": ["cover"],
-    "include_entities": [
-        "cover.garage_door_garage_door"
-    ]
-}
-```
+1. Install the **Homebridge** addon from the Home Assistant addon store
+2. Start the addon and open the Homebridge UI from the HA sidebar
+3. Open the **Home** app on iPhone and add an accessory
+4. Scan the QR code displayed in the Homebridge UI
+5. Homebridge appears as a bridge in HomeKit and exposes selected HA entities
 
-Generate the token in HA: **Profile → Security → Long-Lived Access Tokens**.
+Entity filtering is configured through the Homebridge UI — toggle individual entities on or off to control what appears in HomeKit.
 
 ---
 
