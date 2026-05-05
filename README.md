@@ -16,7 +16,7 @@ Fully local — no cloud dependency. Self-powered from the opener's own 24V DC a
 
 ---
 
-![Build](Reference/b41cb5d47221f72dce90d2227369a7aa359fa2d0.jpeg)
+![Build](sample-board.jpeg)
 
 ---
 
