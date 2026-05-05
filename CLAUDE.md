@@ -19,7 +19,7 @@ ESP32-C3 Mini (ESPHome)
     GPIO10 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+3 (impulse)
     GPIO4  ← reed switch (door CLOSED), internal pullup, active LOW
     GPIO5  ← reed switch (door OPEN), internal pullup, active LOW
-    5V pin ← DD2712SA buck converter ← Marantec XB03 terminal 2 (24V, 50mA max)
+    5V pin ← MP1584EN buck converter ← Marantec XB03 terminal 2 (24V, 50mA max)
 ```
 
 ## ESPHome Commands
@@ -34,9 +34,9 @@ esphome compile garage_door.yaml    # compile only
 
 ## Key ESPHome Config Facts
 
-- **Prototype board:** `esp8266: board: d1_mini`
-- **Final board:** `esp32: board: lolin_c3_mini` with `framework: type: arduino`
-- GPIO10: SSR trigger output — pulse LOW for ~300ms to send an impulse to the Marantec
+- **Dev board:** `esp32: board: esp32dev` with `framework: type: arduino` — ESP32U, GPIO23 for SSR trigger
+- **Final board:** `esp32: board: lolin_c3_mini` with `framework: type: arduino` — GPIO10 for SSR trigger
+- GPIO23: SSR trigger on dev board; GPIO10 on final C3 Mini — pulse LOW for ~300ms to send an impulse to the Marantec
 - GPIO4: door-closed reed switch (`INPUT_PULLUP`, `inverted: true`, 50ms debounce)
 - GPIO5: door-open reed switch (`INPUT_PULLUP`, `inverted: true`, 50ms debounce)
 - The `cover` component uses `platform: template` with `device_class: garage`

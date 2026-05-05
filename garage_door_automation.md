@@ -166,7 +166,7 @@ ESP32 internal pull-ups handle these inputs — no external resistors needed. Co
 MARANTEC COMFORT 280 — XB03
 ─────────────────────────────────────────────────────
 Terminal 2 (24V DC) ────────────────┐
-Terminal 3 (GND)    ────────────────┼──── DD2712SA Buck Converter
+Terminal 3 (GND)    ────────────────┼──── MP1584EN Buck Converter
                                     │    IN+ = Terminal 2
                                     │    IN− = Terminal 3
                                     │    OUT+ (5V) ──── ESP32-C3 5V pin
@@ -184,8 +184,8 @@ ESP32-C3 MINI
 GPIO10  ── 220Ω ── G3VM Pin 1        (SSR trigger output)
 GPIO4   ── Reed switch CLOSED ── GND (door closed sensor, internal pullup)
 GPIO5   ── Reed switch OPEN   ── GND (door open sensor, internal pullup)
-5V pin  ── DD2712SA OUT+             (power in)
-GND     ── DD2712SA OUT−             (power ground)
+5V pin  ── MP1584EN OUT+             (power in)
+GND     ── MP1584EN OUT−             (power ground)
 ```
 
 ---
@@ -196,18 +196,16 @@ GND     ── DD2712SA OUT−             (power ground)
 
 Marantec terminal 2 provides **24V DC, max 50mA**.
 
-### Buck Converter — DD2712SA (5V variant)
+### Buck Converter — MP1584EN module (set to 5V)
 
 | Parameter | Value |
 |---|---|
-| Input voltage range | 4.5–27V |
-| Output voltage | 5V fixed |
-| Max continuous output current | 2.5A |
-| Peak output current | 3.5A |
-| Efficiency | 76–93% |
-| Quiescent current | ~250µA |
-| Size | 25 × 15 × 6.3mm |
-| Protection | OTP, UVLO, short circuit |
+| Input voltage range | 4.5–28V |
+| Output voltage | 5V fixed (preset, no trimmer) |
+| Max continuous output current | 3A |
+| Switching frequency | ~1.5MHz |
+| Efficiency | up to ~92% |
+| Protection | OCP, OTP, UVLO |
 
 ### Current Budget
 
@@ -226,13 +224,15 @@ Peak current from 24V rail:       1.68W / (24V × 0.87) ≈ 80mA  (brief burst, 
 ### Connection
 
 ```
-Marantec Terminal 2 (24V) ──── DD2712SA IN+
-Marantec Terminal 3 (GND) ──── DD2712SA IN−
-DD2712SA OUT+ (5V)         ──── ESP32-C3 Mini 5V pin
-DD2712SA OUT− (GND)        ──── ESP32-C3 Mini GND
+Marantec Terminal 2 (24V) ──── MP1584EN IN+
+Marantec Terminal 3 (GND) ──── MP1584EN IN−
+MP1584EN OUT+ (5V)         ──── 470µF 16V cap (+) ──── ESP32-C3 Mini 5V pin
+MP1584EN OUT− (GND)        ──── 470µF 16V cap (−) ──── ESP32-C3 Mini GND
 ```
 
-> **NOTE:** Measure DD2712SA output voltage with a multimeter before connecting to the ESP32. Confirm 5.0V ±0.2V.
+The 470µF 16V electrolytic capacitor sits across the buck output. It smooths residual ripple and provides local charge reservoir for WiFi TX current bursts. Observe polarity — (+) to OUT+.
+
+> **NOTE:** Measure MP1584EN output voltage with a multimeter before connecting to the ESP32. Confirm 5.0V ±0.2V. Measure with the cap in place.
 
 ---
 
@@ -345,7 +345,7 @@ No additional configuration required beyond adding the HomeKit Bridge integratio
 | Aspect | Prototype (D1 Mini) | Final (C3 Mini) |
 |---|---|---|
 | MCU | ESP8266 | ESP32-C3 |
-| Power | USB from bench supply | DD2712SA from Marantec 24V |
+| Power | USB from bench supply | MP1584EN from Marantec 24V |
 | SSR | Breadboard / relay module | G3VM-61A1 on PCB |
 | Reed switches | Jumper wires | Screw terminals on PCB |
 | ESPHome board | `d1_mini` | `lolin_c3_mini` |
@@ -357,7 +357,7 @@ No additional configuration required beyond adding the HomeKit Bridge integratio
 
 1. Change `esp8266: board: d1_mini` → `esp32: board: lolin_c3_mini` + framework block
 2. Verify GPIO pin numbers match physical wiring on C3 Mini (pinout differs from D1 Mini)
-3. Change power input from USB to DD2712SA 5V output on 5V pin
+3. Change power input from USB to MP1584EN 5V output on 5V pin
 4. Re-flash via USB then confirm OTA works before installing in garage
 
 ---
@@ -370,7 +370,8 @@ No additional configuration required beyond adding the HomeKit Bridge integratio
 | Microcontroller | D1 Mini (ESP8266) | 1 | Prototype only |
 | Solid State Relay | OMRON G3VM-61A1 | 1 | SOP-4 SMD package |
 | Current limit resistor | 220Ω 0.25W | 1 | SSR LED drive |
-| Buck converter | DD2712SA 5V variant | 1 | 24V→5V, self-powered |
+| Buck converter | MP1584EN 5V variant | 1 | 24V→5V, self-powered |
+| Output capacitor | 470µF 16V electrolytic | 1 | Across buck OUT+/OUT−, ripple filter |
 | Reed switch (closed) | NO magnetic contact sensor | 1 | Door closed detection |
 | Reed switch (open) | NO magnetic contact sensor | 1 | Door open detection |
 | Screw terminals | 2-pin 2.54mm or 3.5mm pitch | 3 | Power in, trigger out, sensors |
