@@ -11,13 +11,13 @@
 
 | Signal | GPIO | Notes |
 |---|---|---|
-| SSR trigger | GPIO23 | General purpose output, safe on ESP32; final C3 Mini uses GPIO10 |
+| SSR trigger | GPIO17 | General purpose output, safe on ESP32; final C3 Mini uses GPIO10 |
 | Reed switch — CLOSED | GPIO4 | Matches final build GPIO |
 | Reed switch — OPEN | GPIO5 | Matches final build GPIO |
 | Power in | 5V | From USB via dev board onboard regulator |
 | Ground | GND | — |
 
-> **Dev board vs final:** The final ESP32-C3 Mini uses GPIO10 for the trigger. GPIO23 is used here because it is a clean general-purpose output on the ESP32U dev board. Update the ESPHome YAML `pin:` to GPIO10 when migrating to the C3 Mini.
+> **Dev board vs final:** The final ESP32-C3 Mini uses GPIO10 for the trigger. GPIO17 is used here because it is a clean general-purpose output on the ESP32U dev board. Update the ESPHome YAML `pin:` to GPIO10 when migrating to the C3 Mini.
 
 ---
 
@@ -81,7 +81,7 @@ MP1584EN OUT− ──── 470µF cap (−) ──── GND rail
 ### 1 — SSR input drive
 
 ```
-ESP32U GPIO23 ────  220Ω  ────  G3VM Pin 1 (anode)
+ESP32U GPIO17 ────  220Ω  ────  G3VM Pin 1 (anode)
 ESP32U GND    ─────────────────  G3VM Pin 2 (cathode)
 ```
 
@@ -121,7 +121,7 @@ Same logic — GPIO5 pulled LOW when magnet closes switch → door state = OPEN.
 ```
                    ESP32U
                  ┌──────────┐
-           EN  ──┤          ├── GPIO23 ── 220Ω ── G3VM Pin 1 (anode)
+           EN  ──┤          ├── GPIO17 ── 220Ω ── G3VM Pin 1 (anode)
           3V3 ──┤          ├── GND  ─────────────  G3VM Pin 2 (cathode)
           GND ──┤          ├── GPIO5  ───────────  Reed OPEN  ──── GND
            5V ──┤          ├── GPIO4  ───────────  Reed CLOSED ─── GND
@@ -149,10 +149,10 @@ esp32:
   framework:
     type: arduino
 
-# Dev board — trigger pin is GPIO23, not GPIO10:
+# Dev board — trigger pin is GPIO17, not GPIO10:
 switch:
   - platform: gpio
-    pin: GPIO23          # ESP32U dev board; final C3 Mini uses GPIO10
+    pin: GPIO17          # ESP32U dev board; final C3 Mini uses GPIO10
     id: garage_relay
     restore_mode: ALWAYS_OFF
 ```

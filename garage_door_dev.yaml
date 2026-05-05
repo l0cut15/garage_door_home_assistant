@@ -34,11 +34,11 @@ ota:
     password: !secret ota_password
 
 # ── SSR trigger ──────────────────────────────────────────────────────────────
-# GPIO23 on ESP32U dev board. Final C3 Mini uses GPIO10.
+# GPIO17 on ESP32U dev board. Final C3 Mini uses GPIO10.
 
 switch:
   - platform: gpio
-    pin: GPIO23
+    pin: GPIO17
     id: garage_trigger
     restore_mode: ALWAYS_OFF
     internal: true
@@ -50,7 +50,7 @@ script:
   - id: trigger_pulse
     then:
       - switch.turn_on: garage_trigger
-      - delay: 3s
+      - delay: 300ms
       - switch.turn_off: garage_trigger
 
 # ── Garage door cover (stateless / optimistic) ───────────────────────────────

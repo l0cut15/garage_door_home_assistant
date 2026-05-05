@@ -34,9 +34,9 @@ esphome compile garage_door.yaml    # compile only
 
 ## Key ESPHome Config Facts
 
-- **Dev board:** `esp32: board: esp32dev` with `framework: type: arduino` — ESP32U, GPIO23 for SSR trigger
+- **Dev board:** `esp32: board: esp32dev` with `framework: type: arduino` — ESP32U, GPIO17 for SSR trigger
 - **Final board:** `esp32: board: lolin_c3_mini` with `framework: type: arduino` — GPIO10 for SSR trigger
-- GPIO23: SSR trigger on dev board; GPIO10 on final C3 Mini — pulse LOW for ~300ms to send an impulse to the Marantec
+- GPIO17: SSR trigger on dev board; GPIO10 on final C3 Mini — pulse LOW for ~300ms to send an impulse to the Marantec
 - GPIO4: door-closed reed switch (`INPUT_PULLUP`, `inverted: true`, 50ms debounce)
 - GPIO5: door-open reed switch (`INPUT_PULLUP`, `inverted: true`, 50ms debounce)
 - The `cover` component uses `platform: template` with `device_class: garage`
