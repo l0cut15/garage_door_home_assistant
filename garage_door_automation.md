@@ -226,13 +226,11 @@ Peak current from 24V rail:       1.68W / (24V × 0.87) ≈ 80mA  (brief burst, 
 ```
 Marantec Terminal 2 (24V) ──── MP1584EN IN+
 Marantec Terminal 3 (GND) ──── MP1584EN IN−
-MP1584EN OUT+ (5V)         ──── 470µF 16V cap (+) ──── ESP32-C3 Mini 5V pin
-MP1584EN OUT− (GND)        ──── 470µF 16V cap (−) ──── ESP32-C3 Mini GND
+MP1584EN OUT+ (5V)         ──── ESP32-C3 Mini 5V pin
+MP1584EN OUT− (GND)        ──── ESP32-C3 Mini GND
 ```
 
-The 470µF 16V electrolytic capacitor sits across the buck output. It smooths residual ripple and provides local charge reservoir for WiFi TX current bursts. Observe polarity — (+) to OUT+.
-
-> **NOTE:** Measure MP1584EN output voltage with a multimeter before connecting to the ESP32. Confirm 5.0V ±0.2V. Measure with the cap in place.
+> **NOTE:** Measure MP1584EN output voltage with a multimeter before connecting to the ESP32. Confirm 5.0V ±0.2V.
 
 ---
 
@@ -371,7 +369,7 @@ No additional configuration required beyond adding the HomeKit Bridge integratio
 | Solid State Relay | OMRON G3VM-61A1 | 1 | SOP-4 SMD package |
 | Current limit resistor | 220Ω 0.25W | 1 | SSR LED drive |
 | Buck converter | MP1584EN 5V variant | 1 | 24V→5V, self-powered |
-| Output capacitor | 470µF 16V electrolytic | 1 | Across buck OUT+/OUT−, ripple filter |
+
 | Reed switch (closed) | NO magnetic contact sensor | 1 | Door closed detection |
 | Reed switch (open) | NO magnetic contact sensor | 1 | Door open detection |
 | Screw terminals | 2-pin 2.54mm or 3.5mm pitch | 3 | Power in, trigger out, sensors |

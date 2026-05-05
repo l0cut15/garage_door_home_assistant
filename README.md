@@ -16,6 +16,10 @@ Fully local — no cloud dependency. Self-powered from the opener's own 24V DC a
 
 ---
 
+![Build](Reference/b41cb5d47221f72dce90d2227369a7aa359fa2d0.jpeg)
+
+---
+
 ## Hardware
 
 | Component | Part | Notes |
@@ -24,7 +28,6 @@ Fully local — no cloud dependency. Self-powered from the opener's own 24V DC a
 | Solid State Relay | OMRON G3VM-61A1 | SOP-4; galvanic isolation between ESP and Marantec |
 | Current limit resistor | 220Ω | SSR LED drive ~10mA |
 | Buck converter | MP1584EN (preset 5V) | 24V → 5V, powers ESP32 from Marantec rail |
-| Output capacitor | 470µF 16V electrolytic | Across buck output |
 | Reed switches | NO magnetic contact sensors | GPIO4 (closed), GPIO5 (open) — planned |
 
 ---

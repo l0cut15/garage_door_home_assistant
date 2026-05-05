@@ -30,7 +30,7 @@
 | Resistor, 220Ω | 1 | Sets SSR LED drive current to ~10mA |
 | Reed switch (NO type) | 2 | Normally-open magnetic contact sensors |
 | MP1584EN buck module | 1 | Trimmer pre-set to 5V before bench test |
-| Capacitor, 470µF 16V electrolytic | 1 | Across buck OUT+/OUT−; observe polarity |
+
 | Breadboard | 1 | Half-size is sufficient |
 | Jumper wires | ~10 | Male-to-male for breadboard; male-to-bare for Marantec terminals |
 | USB cable | 1 | Power and serial flash |
@@ -62,19 +62,19 @@ Pins 3 and 4 are the MOSFET drain/source — polarity does not matter for the ou
 
 ## Wiring
 
-### 0 — Buck converter + output capacitor
+### 0 — Buck converter test
 
-Wire the MP1584EN and 470µF cap as a standalone sub-circuit on the breadboard. The ESP32 is **not** connected during the buck test — power the ESP via USB as normal.
+Wire the MP1584EN as a standalone sub-circuit on the breadboard. The ESP32 is **not** connected during the buck test — power the ESP via USB as normal.
 
 ```
 Bench supply 24V (or 12V) ──── MP1584EN IN+
 Bench supply GND          ──── MP1584EN IN−
 
-MP1584EN OUT+ ──── 470µF cap (+) ──── [test point / meter probe]
-MP1584EN OUT− ──── 470µF cap (−) ──── GND rail
+MP1584EN OUT+ ──── [test point / meter probe]
+MP1584EN OUT− ──── GND rail
 ```
 
-> **Pre-test:** Module output is preset to 5V — no trimmer adjustment needed. Power up and confirm with a multimeter before connecting the cap or ESP.
+> **Pre-test:** Module output is preset to 5V — no trimmer adjustment needed. Power up and confirm with a multimeter before connecting the ESP.
 
 ---
 
@@ -166,11 +166,8 @@ Everything else (reed switch pins GPIO4/GPIO5, cover config, WiFi, API, OTA) is 
 ### Step 0 — Buck converter test (before any ESP connection)
 
 1. Wire MP1584EN IN+/IN− to bench supply set to 24V (or 12V).
-2. Do **not** connect the ESP or the 470µF cap yet. Power up and measure OUT+ to GND — should read **5.0V ±0.1V** (preset, no adjustment needed). Power off.
-3. Fit 470µF 16V cap across OUT+/OUT−, observing polarity. Power up again.
-5. Confirm voltage is still 5.0V ±0.1V with cap in place.
-6. Check cap for warmth after 60 seconds — it should be at ambient temperature. Any warmth indicates excess ripple or a wiring fault.
-7. Power off. Buck sub-circuit is verified.
+2. Do **not** connect the ESP yet. Power up and measure OUT+ to GND — should read **5.0V ±0.1V** (preset, no adjustment needed).
+3. Power off. Buck sub-circuit is verified.
 
 ### Step 1 — Firmware and SSR
 
