@@ -67,7 +67,7 @@ Remote control of a Marantec Comfort 280 garage door opener via Home Assistant a
                             │ Isolated dry contact
 ┌───────────────────────────▼─────────────────────────────┐
 │          Marantec Comfort 280 — Terminal XB03           │
-│   Terminal 1 (Impulse) + Terminal 3 (GND)               │
+│   Terminal 1 (GND) + Terminal 2 (Pulse)                 │
 └─────────────────────────────────────────────────────────┘
 ```
 

@@ -40,10 +40,10 @@ Apple Home / Siri
 Home Assistant
     ↕  ESPHome Native API (encrypted, local WiFi)
 ESP32U
-    GPIO17 → 220Ω → G3VM-61A1 → Marantec XB03 pin 1+3  (impulse trigger)
+    GPIO17 → 220Ω → G3VM-61A1 → Marantec XB03 pin 1+2  (impulse trigger)
     GPIO4  ← reed switch (door CLOSED)                  [planned]
     GPIO5  ← reed switch (door OPEN)                    [planned]
-    5V     ← MP1584EN ← Marantec XB03 pin 2 (24V)
+    5V     ← MP1584EN ← Marantec XB03 pin 3 (24V), GND = pin 1
 ```
 
 ---
@@ -62,9 +62,9 @@ See [`breadboard.md`](breadboard.md) for full wiring diagrams and bench test pro
 
 | Terminal | Function | Connection |
 |---|---|---|
-| 1 | Impulse input | G3VM pin 3 or 4 |
-| 2 | 24V DC output | MP1584EN IN+ |
-| 3 | GND | G3VM pin 3 or 4; MP1584EN IN− |
+| 1 | GND | G3VM pin 3 or 4; MP1584EN IN− |
+| 2 | Pulse input | G3VM pin 3 or 4 |
+| 3 | 24V DC output | MP1584EN IN+ |
 | 70/71 | Photocell safety | Do not touch |
 
 ---

@@ -34,7 +34,7 @@ ota:
     password: !secret ota_password
 
 # ── SSR trigger ──────────────────────────────────────────────────────────────
-# GPIO17 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+3
+# GPIO17 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
 
 switch:
   - platform: gpio

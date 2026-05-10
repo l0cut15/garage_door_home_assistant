@@ -53,8 +53,8 @@
 |---|---|---|
 | 1 | Input anode (LED +) | 220Ω resistor → D5 (GPIO14) |
 | 2 | Input cathode (LED −) | GND |
-| 3 | Output | Marantec XB03 Terminal 1 (Impulse) |
-| 4 | Output | Marantec XB03 Terminal 3 (GND) |
+| 3 | Output | Marantec XB03 Terminal 1 (GND) |
+| 4 | Output | Marantec XB03 Terminal 2 (Pulse) |
 
 Pins 3 and 4 are the MOSFET drain/source — polarity does not matter for the output side.
 
@@ -90,11 +90,11 @@ The 220Ω resistor limits LED current to ~10mA: (3.3V − 1.2V) / 220Ω ≈ 9.5m
 ### 2 — SSR output → Marantec XB03
 
 ```
-G3VM Pin 3  ─────────────────────────  Marantec XB03 Terminal 1 (Impulse)
-G3VM Pin 4  ─────────────────────────  Marantec XB03 Terminal 3 (GND)
+G3VM Pin 3  ─────────────────────────  Marantec XB03 Terminal 1 (GND)
+G3VM Pin 4  ─────────────────────────  Marantec XB03 Terminal 2 (Pulse)
 ```
 
-When the input LED is energised, the MOSFET output closes, momentarily shorting Terminal 1 to Terminal 3 — identical to pressing the wall button. No voltage crosses from the ESP side to the Marantec side.
+When the input LED is energised, the MOSFET output closes, momentarily shorting Terminal 2 (Pulse) to Terminal 1 (GND) — identical to pressing the wall button. No voltage crosses from the ESP side to the Marantec side.
 
 ### 3 — Reed switch, CLOSED sensor
 
@@ -129,8 +129,8 @@ Same logic — GPIO5 pulled LOW when magnet closes switch → door state = OPEN.
                      │
                     USB (bench supply)
 
-  G3VM Pin 3 ──────  Marantec XB03 Terminal 1 (Impulse)
-  G3VM Pin 4 ──────  Marantec XB03 Terminal 3 (GND)
+  G3VM Pin 3 ──────  Marantec XB03 Terminal 1 (GND)
+  G3VM Pin 4 ──────  Marantec XB03 Terminal 2 (Pulse)
 
   Reed CLOSED: one lead → GPIO4, other lead → GND
   Reed OPEN:   one lead → GPIO5, other lead → GND
@@ -185,4 +185,4 @@ Everything else (reed switch pins GPIO4/GPIO5, cover config, WiFi, API, OTA) is 
 
 ### Step 3 — Connect to Marantec
 
-11. Only after all above steps pass, connect G3VM pins 3 and 4 to Marantec XB03 terminals 1 and 3.
+11. Only after all above steps pass, connect G3VM pins 3 and 4 to Marantec XB03 terminals 1 and 2.
