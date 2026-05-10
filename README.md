@@ -16,7 +16,7 @@ Fully local — no cloud dependency. Self-powered from the opener's own 24V DC a
 
 ---
 
-![Build](sample-board.jpeg)
+![Build](ha_module_example.jpeg)
 
 ---
 
@@ -50,7 +50,7 @@ ESP32U
 
 ## Wiring
 
-![Board Layout](Board/Garage%20Layout%20ESP32C3%2024x10.png)
+![Board Layout](sample-board.jpeg)
 
 See [`breadboard.md`](breadboard.md) for full wiring diagrams and bench test procedure.
 
