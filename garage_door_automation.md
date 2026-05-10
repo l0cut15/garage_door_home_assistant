@@ -95,9 +95,9 @@ The Marantec exposes all external control connections on terminal block **XB03**
 
 | Terminal | Function | Notes |
 |---|---|---|
-| 3 | GND | Common ground reference |
-| 1 | Impulse input | Trigger input — momentary dry contact to GND opens/stops/closes |
-| 2 | 24V DC output | Max 50mA — used to power the ESP32 |
+| 3 | 24V DC output | Max 50mA — used to power the ESP32 |
+| 1 | GND | Common ground reference |
+| 2 | Pulse input | Trigger input — momentary dry contact to GND opens/stops/closes |
 | 4 | Hold circuit | Normally closed input, active after reset |
 | 70 | GND (photocell) | Photocell ground — already wired, do not disturb |
 | 71 | Photocell input | Obstacle sensor — already wired, do not disturb |
@@ -132,9 +132,9 @@ R = 210Ω → use 220Ω (standard value)
 
 **GPIO → 220Ω → G3VM Pin 1 (anode)**  
 **G3VM Pin 2 (cathode) → GND**  
-**G3VM Pin 3/4 (output) → across Marantec terminals 1 and 3**
+**G3VM Pin 3/4 (output) → across Marantec terminals 1 and 2**
 
-The output pins short together when the input LED is energised, momentarily bridging the Marantec impulse terminals — identical to pressing the wall button.
+The output pins short together when the input LED is energised, momentarily bridging terminal 2 (Pulse) to terminal 1 (GND) — identical to pressing the wall button.
 
 ### 3.3 Door State Sensing — Reed Switches
 
@@ -165,15 +165,15 @@ ESP32 internal pull-ups handle these inputs — no external resistors needed. Co
 ```
 MARANTEC COMFORT 280 — XB03
 ─────────────────────────────────────────────────────
-Terminal 2 (24V DC) ────────────────┐
-Terminal 3 (GND)    ────────────────┼──── MP1584EN Buck Converter
-                                    │    IN+ = Terminal 2
-                                    │    IN− = Terminal 3
+Terminal 3 (24V DC) ────────────────┐
+Terminal 1 (GND)    ────────────────┼──── MP1584EN Buck Converter
+                                    │    IN+ = Terminal 3
+                                    │    IN− = Terminal 1
                                     │    OUT+ (5V) ──── ESP32-C3 5V pin
                                     │    OUT− (GND) ─── ESP32-C3 GND
 
-Terminal 1 (Impulse) ───┐
-Terminal 3 (GND)    ────┼───────── G3VM-61A1 Output (pins 3+4)
+Terminal 2 (Pulse)  ───┐
+Terminal 1 (GND)    ────┼───────── G3VM-61A1 Output (pins 3+4)
                         │          G3VM-61A1 Input pin 1 ── 220Ω ── ESP32 GPIO10
                         │          G3VM-61A1 Input pin 2 ──────────── ESP32 GND
 
@@ -194,7 +194,7 @@ GND     ── MP1584EN OUT−             (power ground)
 
 ### Source
 
-Marantec terminal 2 provides **24V DC, max 50mA**.
+Marantec terminal 3 provides **24V DC, max 50mA**. Terminal 1 is GND.
 
 ### Buck Converter — MP1584EN module (set to 5V)
 
@@ -224,8 +224,8 @@ Peak current from 24V rail:       1.68W / (24V × 0.87) ≈ 80mA  (brief burst, 
 ### Connection
 
 ```
-Marantec Terminal 2 (24V) ──── MP1584EN IN+
-Marantec Terminal 3 (GND) ──── MP1584EN IN−
+Marantec Terminal 3 (24V) ──── MP1584EN IN+
+Marantec Terminal 1 (GND) ──── MP1584EN IN−
 MP1584EN OUT+ (5V)         ──── ESP32-C3 Mini 5V pin
 MP1584EN OUT− (GND)        ──── ESP32-C3 Mini GND
 ```

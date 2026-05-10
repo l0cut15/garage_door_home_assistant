@@ -8,7 +8,14 @@ Smart garage door controller for a **Marantec Comfort 280** opener. ESP32U (esp3
 
 Full design rationale and hardware details are in `garage_door_automation.md`. Read it before making any firmware or hardware decisions.
 
-## Architecture
+## Versions
+
+| Version | Status | Firmware | Description |
+|---|---|---|---|
+| V1 | **Complete** | `garage_door.yaml` | ESP32U protoboard — impulse trigger, optimistic cover state |
+| V2 | In progress | `garage_door_v2.yaml` | Adds VL53L0X ToF sensor for Closed / Open / Moving state |
+
+## V1 Architecture (complete — do not modify `garage_door.yaml` for V1 features)
 
 ```
 Apple Home / Siri
@@ -16,30 +23,32 @@ Apple Home / Siri
 Home Assistant  ←→  cover entity (device_class: garage)
     ↕ ESPHome Native API (encrypted, local WiFi)
 ESP32U (ESPHome)
-    GPIO17 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+3 (impulse)
-    GPIO4  ← reed switch (door CLOSED), internal pullup, active LOW  [planned]
-    GPIO5  ← reed switch (door OPEN), internal pullup, active LOW    [planned]
-    5V pin ← MP1584EN buck converter ← Marantec XB03 terminal 2 (24V, 50mA max)
+    GPIO17 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
+    5V pin ← MP1584EN buck converter ← Marantec XB03 terminal 3 (24V, 50mA max), GND = terminal 1
 ```
+
+Reed switch inputs (GPIO4/GPIO5) are **V2 scope** — not present in V1.
 
 ## ESPHome Commands
 
 ```bash
+# V1
 esphome run garage_door.yaml        # compile + OTA flash
 esphome logs garage_door.yaml       # stream device logs
-esphome compile garage_door.yaml    # compile only
+
+# V2
+esphome run garage_door_v2.yaml
+esphome logs garage_door_v2.yaml
 ```
 
-`secrets.yaml` is required and not committed. It must define: `wifi_ssid`, `wifi_password`, `esphome_api_key`, `ota_password`.
+`secrets.yaml` is required and not committed. It must define: `wifi_ssid`, `wifi_password`, `esphome_api_key`, `ota_password`, `ap_fallback_password`.
 
-## Key ESPHome Config Facts
+## V1 ESPHome Config Facts
 
 - **Board:** `esp32: board: esp32dev` with `framework: type: arduino`
 - **GPIO17:** SSR trigger — pulse HIGH for 300ms to send an impulse to the Marantec
-- **GPIO4:** door-closed reed switch (`INPUT_PULLUP`, `inverted: true`, 50ms debounce) — not yet wired
-- **GPIO5:** door-open reed switch (`INPUT_PULLUP`, `inverted: true`, 50ms debounce) — not yet wired
-- Cover uses `optimistic: true` + `assumed_state: true` until reed switches are installed
-- The relay switch must use `restore_mode: ALWAYS_OFF` — it must never energise on boot
+- Cover uses `optimistic: true` + `assumed_state: true` — this is permanent for V1, not a placeholder
+- The trigger switch uses `restore_mode: ALWAYS_OFF` — it must never energise on boot
 - Bluetooth proxy is enabled (`active: true`)
 
 ## Critical Hardware Constraints
@@ -49,11 +58,99 @@ esphome compile garage_door.yaml    # compile only
 - Buck converter output must be confirmed at 5.0V ±0.2V before connecting to the ESP32.
 - All ESP32 GPIO are 3.3V — not 5V tolerant.
 
-## Door State Logic (when reed switches are added)
+## V2 Architecture
 
-| GPIO4 (CLOSED) | GPIO5 (OPEN) | State |
-|---|---|---|
-| LOW (active) | HIGH | Closed |
-| HIGH | LOW (active) | Open |
-| HIGH | HIGH | Moving (direction tracked by ESPHome from last command) |
-| LOW | LOW | Error |
+Board: **Lolin C3 Mini** (`lolin_c3_mini`). Sensor: **CJVL53L0XV2** (VL53L0X breakout).
+
+```
+Apple Home / Siri
+    ↕ HomeKit (via Homebridge)
+Home Assistant  ←→  cover entity (device_class: garage)
+    ↕ ESPHome Native API (encrypted, local WiFi)
+Lolin C3 Mini (ESPHome)
+    GPIO10 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
+    GPIO4  (SDA) ┐
+    GPIO5  (SCL) ┘← I2C → CJVL53L0XV2 (ceiling-mounted, pointing down at door top)
+    3.3V pin → CJVL53L0XV2 VCC   ← MUST be 3.3V, not 5V (C3 Mini GPIO are 3.3V only)
+    5V pin ← MP1584EN buck converter ← Marantec XB03 terminal 3 (24V, 50mA max), GND = terminal 1
+```
+
+**CJVL53L0XV2 wiring note:** Power the module from the C3 Mini's **3.3V pin**, not 5V. The module accepts both voltages, but if powered at 5V its SDA/SCL lines will be 5V logic — this will damage the C3 Mini. At 3.3V, I2C lines are directly compatible with no level shifting required.
+
+### V2 Door State Logic
+
+Cover state is derived from VL53L0X distance thresholds (substitutions in `garage_door_v2.yaml`):
+
+| Distance reading | State |
+|---|---|
+| ≤ `closed_distance_m` | Closed |
+| ≥ `open_distance_m` | Open |
+| Between thresholds | Indeterminate — ESPHome shows Opening/Closing during action, else last known state |
+| NaN / 0 / no reading | Indeterminate (sensor not ready or out of range) |
+
+### V2 Calibration
+
+**Step 1 — Confirm sensor is detected**
+
+Flash the firmware and check logs immediately:
+```bash
+esphome logs garage_door_v2.yaml
+```
+Look for the I2C scan output (logged once on boot due to `scan: true`):
+```
+[I][i2c.arduino:069]: Found i2c device at address 0x29
+```
+If `0x29` is not listed, stop and check wiring before proceeding.
+
+**Step 2 — Read live distance**
+
+With the device running, open Home Assistant → Developer Tools → States and find the `Garage Door Distance` sensor entity. This updates every 500ms and is the most convenient calibration tool.
+
+Alternatively, watch the log stream:
+```
+[D][sensor:094]: 'Garage Door Distance': Sending state 0.18 m
+```
+
+**Step 3 — Measure closed distance**
+
+Close the door fully. Let the reading settle (a few seconds). Note the value, then set:
+```yaml
+closed_distance_m: "<reading> + 0.05"   # add 5cm margin against vibration flicker
+```
+
+**Step 4 — Confirm open threshold**
+
+Open the door fully. Confirm the reading is well above your intended `open_distance_m` (0.5–0.8m is a safe default). The sensor does not need to see the door when open — any reading above the threshold declares it open.
+
+**Step 5 — Measure travel time**
+
+Time the door from fully closed to fully open (and back). Set:
+```yaml
+travel_time_s: "<seconds>s"
+```
+Add 2–3 seconds margin so the timeout only fires if the door genuinely stalls.
+
+**Step 6 — Reflash and verify**
+
+```bash
+esphome run garage_door_v2.yaml   # OTA flash with updated substitutions
+```
+Trigger open and close from HA and confirm the cover entity transitions correctly through Opening → Open → Closing → Closed.
+
+**Step 7 — Test stop behaviour**
+
+Trigger open, then immediately send stop mid-travel. Observe what the Marantec does on the next open/close command — confirm whether it resumes or reverses. Update the stop caveat note once confirmed.
+
+### V2 Key Config Facts
+
+- **Board:** `esp32: board: lolin_c3_mini` with `framework: type: arduino`
+- **GPIO10:** SSR trigger (replaces GPIO17 from V1 — C3 Mini pinout differs)
+- **GPIO4/GPIO5:** I2C SDA/SCL — GPIO8/9 avoided (strapping/BOOT pins on C3 Mini)
+- **VL53L0X:** address 0x29 (default), `long_range: true`, 500ms update interval
+- Cover lambda replaces optimistic mode with threshold-based state
+- `open_duration` / `close_duration` set to `travel_time_s` — fallback if sensor never confirms target state
+- Raw distance published to HA as `Garage Door Distance` sensor (use for calibration)
+
+### Stop Button Caveat (unconfirmed — test before relying on it)
+
+The Marantec Comfort 280 impulse cycle is: **Open → Stop → Close → Stop → Open**. After a stop mid-travel, the next impulse **reverses direction** rather than resuming. ESPHome does not model this — if it issues an open command after a mid-travel stop, the Marantec may close instead. Verify physical behaviour before building any automations that depend on stop + resume.

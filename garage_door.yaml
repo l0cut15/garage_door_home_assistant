@@ -54,8 +54,8 @@ script:
       - switch.turn_off: garage_trigger
 
 # ── Garage door cover ────────────────────────────────────────────────────────
-# assumed_state: both open and close always available regardless of last state.
-# Add reed switches on GPIO4/GPIO5 and replace with lambda state when installed.
+# V1: optimistic mode — assumed_state exposes both open and close at all times.
+# Reed switch state sensing is V2 scope.
 
 cover:
   - platform: template

@@ -1,0 +1,136 @@
+substitutions:
+  device_name: garage-door
+  friendly_name: Garage Door
+
+  # ── Calibration ──────────────────────────────────────────────────────────────
+  # Measure these values after mounting the VL53L0X on the ceiling above the door.
+  #
+  # closed_distance_m: distance (m) from sensor to top of door when fully closed.
+  #   Measure with a tape or read the raw sensor value from HA while door is closed.
+  #   Add ~5cm margin so normal vibration doesn't flicker the state.
+  #
+  # open_distance_m: threshold (m) beyond which the door is declared open.
+  #   Does NOT need to equal the true sensor-to-floor distance when door is rolled up.
+  #   Set it to something clearly larger than closed_distance_m — e.g. 0.5–0.8m.
+  #   The VL53L0X will read well beyond this when the door is out of the way.
+  #
+  # TODO: replace placeholder values after installation measurement.
+  closed_distance_m: "0.20"   # placeholder — door top ~20cm below ceiling sensor
+  open_distance_m:   "0.60"   # placeholder — anything beyond 60cm = door is open
+
+  # travel_time_s: fallback timeout for Opening/Closing states.
+  # If the sensor has not confirmed the target state after this long, ESPHome
+  # optimistically declares the cover open or closed.
+  # TODO: measure actual door travel time and replace.
+  travel_time_s: "10s"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: lolin_c3_mini
+  framework:
+    type: arduino
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: !secret ap_fallback_password
+
+captive_portal:
+
+bluetooth_proxy:
+  active: true
+
+logger:
+
+api:
+  encryption:
+    key: !secret esphome_api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# ── I2C bus ──────────────────────────────────────────────────────────────────
+# GPIO4/GPIO5 chosen for C3 Mini — avoids strapping pins GPIO8 (pull-up) and GPIO9 (BOOT).
+i2c:
+  sda: GPIO4
+  scl: GPIO5
+  scan: true
+
+# ── VL53L0X distance sensor ───────────────────────────────────────────────────
+# Ceiling-mounted, pointing down at the top of the door.
+# long_range: true extends range to ~1.2m+ at the cost of slightly slower updates.
+# Publishes raw distance to HA — use this during calibration to read actual values.
+sensor:
+  - platform: vl53l0x
+    name: "Garage Door Distance"
+    id: door_distance
+    address: 0x29
+    update_interval: 500ms
+    long_range: true
+
+# ── SSR trigger ──────────────────────────────────────────────────────────────
+# GPIO10 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+3
+switch:
+  - platform: gpio
+    pin: GPIO10
+    id: garage_trigger
+    restore_mode: ALWAYS_OFF
+    internal: true
+
+# ── Pulse script ─────────────────────────────────────────────────────────────
+script:
+  - id: trigger_pulse
+    then:
+      - switch.turn_on: garage_trigger
+      - delay: 300ms
+      - switch.turn_off: garage_trigger
+
+# ── Garage door cover ────────────────────────────────────────────────────────
+# State is driven by VL53L0X distance thresholds:
+#   distance <= closed_distance_m  → CLOSED
+#   distance >= open_distance_m    → OPEN
+#   anything between               → indeterminate (ESPHome shows Opening/Closing
+#                                    while an action is in progress, else last state)
+#
+# open_duration / close_duration: fallback timeout. If the sensor has not confirmed
+# the target state after travel_time_s, ESPHome optimistically declares it reached.
+# This handles the case where the door stalls mid-travel or the sensor loses the door.
+#
+# STOP BUTTON — BEHAVIOUR UNCONFIRMED:
+# The Marantec Comfort 280 impulse cycle is: Open → Stop → Close → Stop → Open.
+# After a stop mid-travel, the next impulse REVERSES direction (does not resume).
+# ESPHome is unaware of this — if it issues an open pulse after a mid-travel stop,
+# the Marantec may close instead. Test physically before relying on stop from HA.
+cover:
+  - platform: template
+    name: "Garage Door"
+    device_class: garage
+    open_duration: ${travel_time_s}
+    close_duration: ${travel_time_s}
+    lambda: |-
+      if (!id(door_distance).has_state()) {
+        return {};
+      }
+      float d = id(door_distance).state;
+      if (isnan(d) || d <= 0) {
+        return {};
+      }
+      if (d <= ${closed_distance_m}) {
+        return COVER_CLOSED;
+      }
+      if (d >= ${open_distance_m}) {
+        return COVER_OPEN;
+      }
+      return {};
+    open_action:
+      - script.execute: trigger_pulse
+    close_action:
+      - script.execute: trigger_pulse
+    stop_action:
+      - script.execute: trigger_pulse
