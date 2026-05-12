@@ -148,7 +148,6 @@ Trigger open, then immediately send stop mid-travel. Observe what the Marantec d
 - **GPIO1/GPIO3:** I2C SDA/SCL
 - **VL53L0X:** address 0x29 (default), `long_range: true`, 500ms update interval
 - Cover lambda replaces optimistic mode with threshold-based state
-- `open_duration` / `close_duration` set to `travel_time_s` — fallback if sensor never confirms target state
 - Raw distance published to HA as `Garage Door Distance` sensor (use for calibration)
 
 ### ESP32-C3 WiFi Requirements

@@ -1,6 +1,6 @@
 substitutions:
-  device_name: garage-door
-  friendly_name: Garage Door
+  device_name: garage-door-v2
+  friendly_name: Garage Door-v2
 
   # ── Calibration ──────────────────────────────────────────────────────────────
   # Measure these values after mounting the VL53L0X on the ceiling above the door.
@@ -15,14 +15,8 @@ substitutions:
   #   The VL53L0X will read well beyond this when the door is out of the way.
   #
   # TODO: replace placeholder values after installation measurement.
-  closed_distance_m: "0.20"   # placeholder — door top ~20cm below ceiling sensor
-  open_distance_m:   "0.60"   # placeholder — anything beyond 60cm = door is open
-
-  # travel_time_s: fallback timeout for Opening/Closing states.
-  # If the sensor has not confirmed the target state after this long, ESPHome
-  # optimistically declares the cover open or closed.
-  # TODO: measure actual door travel time and replace.
-  travel_time_s: "10s"
+  closed_distance_m: "0.20" # placeholder — door top ~20cm below ceiling sensor
+  open_distance_m: "0.60" # placeholder — anything beyond 60cm = door is open
 
 esphome:
   name: ${device_name}
@@ -106,9 +100,6 @@ script:
 #   anything between               → indeterminate (ESPHome shows Opening/Closing
 #                                    while an action is in progress, else last state)
 #
-# open_duration / close_duration: fallback timeout. If the sensor has not confirmed
-# the target state after travel_time_s, ESPHome optimistically declares it reached.
-# This handles the case where the door stalls mid-travel or the sensor loses the door.
 #
 # STOP BUTTON — BEHAVIOUR UNCONFIRMED:
 # The Marantec Comfort 280 impulse cycle is: Open → Stop → Close → Stop → Open.
@@ -119,8 +110,6 @@ cover:
   - platform: template
     name: "Garage Door"
     device_class: garage
-    open_duration: ${travel_time_s}
-    close_duration: ${travel_time_s}
     lambda: |-
       if (!id(door_distance).has_state()) {
         return {};
