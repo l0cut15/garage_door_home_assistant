@@ -60,19 +60,19 @@ esphome logs garage_door_v2.yaml
 
 ## V2 Architecture
 
-Board: **Lolin C3 Mini** (`lolin_c3_mini`). Sensor: **CJVL53L0XV2** (VL53L0X breakout).
+Board: **ESP32-C3 Super Mini** (`esp32-c3-devkitm-1`). Sensor: **CJVL53L0XV2** (VL53L0X breakout). Buck: **Mini 5605V**.
 
 ```
 Apple Home / Siri
     ↕ HomeKit (via Homebridge)
 Home Assistant  ←→  cover entity (device_class: garage)
     ↕ ESPHome Native API (encrypted, local WiFi)
-Lolin C3 Mini (ESPHome)
-    GPIO10 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
-    GPIO4  (SDA) ┐
-    GPIO5  (SCL) ┘← I2C → CJVL53L0XV2 (ceiling-mounted, pointing down at door top)
-    3.3V pin → CJVL53L0XV2 VCC   ← MUST be 3.3V, not 5V (C3 Mini GPIO are 3.3V only)
-    5V pin ← MP1584EN buck converter ← Marantec XB03 terminal 3 (24V, 50mA max), GND = terminal 1
+ESP32-C3 Super Mini (ESPHome)
+    GPIO7  → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
+    GPIO1  (SDA) ┐
+    GPIO3  (SCL) ┘← I2C → CJVL53L0XV2 (ceiling-mounted, pointing down at door top)
+    3.3V pin → CJVL53L0XV2 VCC   ← MUST be 3.3V, not 5V (C3 GPIO are 3.3V only)
+    5V pin ← Mini 5605V buck converter ← Marantec XB03 terminal 3 (24V, 50mA max), GND = terminal 1
 ```
 
 **CJVL53L0XV2 wiring note:** Power the module from the C3 Mini's **3.3V pin**, not 5V. The module accepts both voltages, but if powered at 5V its SDA/SCL lines will be 5V logic — this will damage the C3 Mini. At 3.3V, I2C lines are directly compatible with no level shifting required.
@@ -98,7 +98,7 @@ esphome logs garage_door_v2.yaml
 ```
 Look for the I2C scan output (logged once on boot due to `scan: true`):
 ```
-[I][i2c.arduino:069]: Found i2c device at address 0x29
+[I][i2c.idf:069]: Found i2c device at address 0x29
 ```
 If `0x29` is not listed, stop and check wiring before proceeding.
 
@@ -143,13 +143,25 @@ Trigger open, then immediately send stop mid-travel. Observe what the Marantec d
 
 ### V2 Key Config Facts
 
-- **Board:** `esp32: board: lolin_c3_mini` with `framework: type: arduino`
-- **GPIO10:** SSR trigger (replaces GPIO17 from V1 — C3 Mini pinout differs)
-- **GPIO4/GPIO5:** I2C SDA/SCL — GPIO8/9 avoided (strapping/BOOT pins on C3 Mini)
+- **Board:** `esp32-c3-devkitm-1`, `variant: esp32c3`, `framework: type: esp-idf`
+- **GPIO7:** SSR trigger (replaces GPIO17 from V1)
+- **GPIO1/GPIO3:** I2C SDA/SCL
 - **VL53L0X:** address 0x29 (default), `long_range: true`, 500ms update interval
 - Cover lambda replaces optimistic mode with threshold-based state
 - `open_duration` / `close_duration` set to `travel_time_s` — fallback if sensor never confirms target state
 - Raw distance published to HA as `Garage Door Distance` sensor (use for calibration)
+
+### ESP32-C3 WiFi Requirements
+
+The C3 requires specific WiFi config to connect reliably — arduino framework and default wifi settings do not work:
+
+- **Framework must be `esp-idf`** (not arduino) — arduino framework has known WiFi instability on C3
+- **Disable WPA3 SAE** via sdkconfig: `CONFIG_ESP_WIFI_ENABLE_WPA3_SAE: "n"` — WPA3 negotiation causes connection failures on many routers
+- **`power_save_mode: none`** — power saving causes frequent disconnects
+- **`output_power: 8.5`** — full TX power can cause brownouts on the small board; 8.5 dBm is stable
+- **`fast_connect: true`** — skips full channel scan, connects to known AP directly
+- **`reboot_timeout: 15min`** — reboots if WiFi never connects (recovery from bad state)
+- **2.4 GHz only** — ESP32-C3 has no 5 GHz radio; SSID must be on 2.4 GHz band
 
 ### Stop Button Caveat (unconfirmed — test before relying on it)
 
