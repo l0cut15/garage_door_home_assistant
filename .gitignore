@@ -1,5 +1,6 @@
 secrets.yaml
 .DS_Store
-Reference/ESP32C/Pin out bottom.png
-Reference/b41cb5d47221f72dce90d2227369a7aa359fa2d0.jpeg
-Reference/G3VM.png
+Reference/
+garage-door-v2.factory.bin
+garage_door_v2_design.md
+garage_door_v2_gpio_test.yaml
