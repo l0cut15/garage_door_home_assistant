@@ -1,4 +1,9 @@
-# Garage Door Automation — Design Document
+# Garage Door Automation — Design Document (V1)
+
+> **This is the V1 design document.** V1 is complete and uses an optimistic cover with no sensor.  
+> V2 supersedes sections 3.3 (state sensing), 5 (power — different buck converter), and 7 (ESPHome config).  
+> For V2 design rationale see [`garage_door_v2_design.md`](garage_door_v2_design.md).  
+> For current firmware facts see [`CLAUDE.md`](CLAUDE.md).
 
 **Project:** Smart Garage Door Controller  
 **Platform:** ESP32-C3 Mini (prototype: D1 Mini ESP8266)  

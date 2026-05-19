@@ -3,20 +3,21 @@ substitutions:
   friendly_name: Garage Door-v2
 
   # ── Calibration ──────────────────────────────────────────────────────────────
-  # Measure these values after mounting the VL53L0X on the ceiling above the door.
+  # Sensor is mounted horizontally on the ceiling, beam pointing across the door
+  # opening. Horizontal mount chosen over vertical: same information (closed ~0.67m,
+  # open = NaN), cleaner cabling.
   #
-  # closed_distance_m: distance (m) from sensor to top of door when fully closed.
-  #   Measure with a tape or read the raw sensor value from HA while door is closed.
-  #   Add ~5cm margin so normal vibration doesn't flicker the state.
+  # closed_distance_m: reading when door is fully closed. Measured 0.67m; +5cm margin.
   #
-  # open_distance_m: threshold (m) beyond which the door is declared open.
-  #   Does NOT need to equal the true sensor-to-floor distance when door is rolled up.
-  #   Set it to something clearly larger than closed_distance_m — e.g. 0.5–0.8m.
-  #   The VL53L0X will read well beyond this when the door is out of the way.
+  # open_distance_m: not used for OPEN detection in this mount position — the door
+  #   never reaches this threshold before going out of range. Set above realistic
+  #   range to prevent false triggers. OPEN is detected by sustained NaN instead.
   #
-  # TODO: replace placeholder values after installation measurement.
-  closed_distance_m: "0.20" # placeholder — door top ~20cm below ceiling sensor
-  open_distance_m: "0.60" # placeholder — anything beyond 60cm = door is open
+  # nan_open_count: consecutive NaN readings required to declare OPEN.
+  #   At 500ms update interval: 6 = 3s. Boot NaN clears in <1s so no false trigger.
+  closed_distance_m: "0.72"  # measured 0.67m + 5cm margin (2026-05-19)
+  open_distance_m: "1.10"    # not used — above realistic range
+  nan_open_count: "6"        # 6 × 500ms = 3s sustained NaN → OPEN
 
 esphome:
   name: ${device_name}
@@ -56,8 +57,20 @@ ota:
   - platform: esphome
     password: !secret ota_password
 
+# ── NaN streak tracking ───────────────────────────────────────────────────────
+# had_valid_reading: suppresses NaN-as-open on boot before sensor warms up.
+# nan_streak: counts consecutive NaN readings; cover lambda declares OPEN at threshold.
+globals:
+  - id: had_valid_reading
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  - id: nan_streak
+    type: int
+    restore_value: false
+    initial_value: '0'
+
 # ── I2C bus ──────────────────────────────────────────────────────────────────
-# GPIO1/GPIO3 on ESP32-C3 Super Mini.
 i2c:
   sda: GPIO1
   scl: GPIO3
@@ -65,9 +78,7 @@ i2c:
   scan: true
 
 # ── VL53L0X distance sensor ───────────────────────────────────────────────────
-# Ceiling-mounted, pointing down at the top of the door.
-# long_range: true extends range to ~1.2m+ at the cost of slightly slower updates.
-# Publishes raw distance to HA — use this during calibration to read actual values.
+# Horizontal ceiling mount. Closed reads ~0.67m; open reads NaN (out of range).
 sensor:
   - platform: vl53l0x
     name: "Garage Door Distance"
@@ -75,6 +86,14 @@ sensor:
     address: 0x29
     update_interval: 500ms
     long_range: true
+    on_value:
+      - lambda: |-
+          if (isnan(x) || x <= 0.0f) {
+            id(nan_streak)++;
+          } else {
+            id(had_valid_reading) = true;
+            id(nan_streak) = 0;
+          }
 
 # ── SSR trigger ──────────────────────────────────────────────────────────────
 # GPIO7 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
@@ -94,12 +113,10 @@ script:
       - switch.turn_off: garage_trigger
 
 # ── Garage door cover ────────────────────────────────────────────────────────
-# State is driven by VL53L0X distance thresholds:
-#   distance <= closed_distance_m  → CLOSED
-#   distance >= open_distance_m    → OPEN
-#   anything between               → indeterminate (ESPHome shows Opening/Closing
-#                                    while an action is in progress, else last state)
-#
+# State logic:
+#   distance <= closed_distance_m          → CLOSED
+#   NaN sustained >= nan_open_count × 500ms → OPEN  (Option B)
+#   anything else                          → indeterminate
 #
 # STOP BUTTON — BEHAVIOUR UNCONFIRMED:
 # The Marantec Comfort 280 impulse cycle is: Open → Stop → Close → Stop → Open.
@@ -115,13 +132,13 @@ cover:
         return {};
       }
       float d = id(door_distance).state;
-      if (isnan(d) || d <= 0) {
+      if (!isnan(d) && d > 0) {
+        if (d <= ${closed_distance_m}) {
+          return COVER_CLOSED;
+        }
         return {};
       }
-      if (d <= ${closed_distance_m}) {
-        return COVER_CLOSED;
-      }
-      if (d >= ${open_distance_m}) {
+      if (id(had_valid_reading) && id(nan_streak) >= ${nan_open_count}) {
         return COVER_OPEN;
       }
       return {};
