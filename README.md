@@ -1,17 +1,10 @@
 # Garage Door Controller — Marantec Comfort 280
 
-ESP32-based smart garage door controller for the **Marantec Comfort 280** opener. Runs ESPHome firmware, integrates with Home Assistant, and is exposed to Apple HomeKit via Homebridge.
+ESP32-C3 based smart garage door controller for the **Marantec Comfort 280** opener. Runs ESPHome firmware, integrates with Home Assistant, and is exposed to Apple HomeKit via Homebridge.
 
 Fully local — no cloud dependency. Self-powered from the opener's own 24V DC auxiliary rail.
 
----
-
-## Versions
-
-| Version | Status | Board | State detection |
-|---|---|---|---|
-| V1 | Prototype (retired) | ESP32U (esp32dev) | Optimistic (no sensor) |
-| V2 | **Current** | ESP32-C3 Super Mini | VL53L0X ToF — real open/closed state |
+![Home Assistant](ha_module_example.jpeg)
 
 ---
 
@@ -19,25 +12,16 @@ Fully local — no cloud dependency. Self-powered from the opener's own 24V DC a
 
 - Open / close / stop from Home Assistant dashboard or Apple Home
 - Appears as a native garage door accessory in HomeKit
+- Real-time door state via VL53L0X time-of-flight sensor (no door wiring required)
 - Bluetooth proxy — extends Home Assistant Bluetooth range
 - Galvanically isolated trigger (G3VM-61A1 MOSFET SSR)
 - Self-powered from Marantec 24V rail via buck converter
-- **V2:** Real-time door state via VL53L0X time-of-flight sensor (no door wiring required)
 
 ---
 
 ## Hardware
 
-### V1
-
-| Component | Part | Notes |
-|---|---|---|
-| Microcontroller | ESP32U (esp32dev) | Soldered protoboard build |
-| Solid State Relay | OMRON G3VM-61A1 | SOP-4; galvanic isolation |
-| Current limit resistor | 220Ω | SSR LED drive ~10mA |
-| Buck converter | MP1584EN (preset 5V) | 24V → 5V |
-
-### V2
+![ESP32-C3 board](c3-board.jpeg)
 
 | Component | Part | Notes |
 |---|---|---|
@@ -49,7 +33,7 @@ Fully local — no cloud dependency. Self-powered from the opener's own 24V DC a
 
 ---
 
-## Architecture (V2)
+## Architecture
 
 ```
 Apple Home / Siri
@@ -58,7 +42,7 @@ Home Assistant
     ↕  ESPHome Native API (encrypted, local WiFi)
 ESP32-C3 Super Mini
     GPIO7  → 220Ω → G3VM-61A1 → Marantec XB03 terminals 1+2  (impulse trigger)
-    GPIO1 (SDA) / GPIO3 (SCL) → I2C → CJVL53L0XV2 ToF sensor (ceiling, horizontal mount)
+    GPIO1 (SDA) / GPIO3 (SCL) → I2C → CJVL53L0XV2 ToF sensor (ceiling-mounted)
     5V  ← Mini 5605V buck converter ← Marantec XB03 terminal 3 (24V)
 ```
 
@@ -129,26 +113,9 @@ The [Homebridge addon](https://github.com/homebridge/homebridge-homeassistant) r
 ## Repository Structure
 
 ```
-garage_door.yaml           # V1 ESPHome firmware (complete)
-garage_door_v2.yaml        # V2 ESPHome firmware (active)
-garage_door_automation.md  # V1 design document
-garage_door_v2_design.md   # V2 design document
+garage_door_v2.yaml        # ESPHome firmware
 breadboard.md              # Wiring guide
 secrets.example.yaml       # Secrets template
 Board/                     # Fritzing layout files
 3DPrint/                   # 3D print files (STL, source, mounts)
 ```
-
----
-
-## Roadmap
-
-- [x] V1: impulse trigger via SSR
-- [x] V1: optimistic cover state in HA/HomeKit
-- [x] V2: board migrated to ESP32-C3 Super Mini
-- [x] V2: VL53L0X ToF sensor — real closed/open state detection
-- [x] V2: sustained-NaN closed detection implemented
-- [x] V2: calibrate thresholds in final installed position
-- [x] V2: install in garage and verify end-to-end
-- [x] V2: HomeKit integration confirmed working
-- [ ] Mount in 3D printed enclosure
