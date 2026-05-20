@@ -136,7 +136,7 @@ garage_door_v2_design.md   # V2 design document
 breadboard.md              # Wiring guide
 secrets.example.yaml       # Secrets template
 Board/                     # Fritzing layout files
-Case/                      # 3D print files (base + lid STL)
+3DPrint/                   # 3D print files (STL, source, mounts)
 ```
 
 ---
