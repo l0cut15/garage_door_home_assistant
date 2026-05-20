@@ -1,9 +1,9 @@
-# Breadboard Wiring — Garage Door Controller Prototype
+# Wiring Guide — Garage Door Controller V2
 
-**Board:** ESP32U dev board (ESP32 with U.FL antenna)  
-**Power:** USB from bench supply for ESP logic; MP1584EN buck on breadboard for standalone buck test  
-**Isolation:** OMRON G3VM-61A1 MOSFET SSR (through-hole / DIP-4)  
-**Sensors:** Two NO reed switches with jumper wires
+**Board:** ESP32-C3 Super Mini  
+**Power:** Mini 5605V buck converter (Marantec 24V → 5V)  
+**Isolation:** OMRON G3VM-61A1 MOSFET SSR (SOP-4)  
+**Sensor:** CJVL53L0XV2 (VL53L0X ToF breakout) — ceiling-mounted, I2C
 
 ---
 
@@ -11,13 +11,12 @@
 
 | Signal | GPIO | Notes |
 |---|---|---|
-| SSR trigger | GPIO17 | General purpose output, safe on ESP32; final C3 Mini uses GPIO10 |
-| Reed switch — CLOSED | GPIO4 | Matches final build GPIO |
-| Reed switch — OPEN | GPIO5 | Matches final build GPIO |
-| Power in | 5V | From USB via dev board onboard regulator |
-| Ground | GND | — |
-
-> **Dev board vs final:** The final ESP32-C3 Mini uses GPIO10 for the trigger. GPIO17 is used here because it is a clean general-purpose output on the ESP32U dev board. Update the ESPHome YAML `pin:` to GPIO10 when migrating to the C3 Mini.
+| SSR trigger | GPIO7 | Drives G3VM-61A1 via 220Ω resistor |
+| I2C SDA | GPIO1 | VL53L0X data |
+| I2C SCL | GPIO3 | VL53L0X clock |
+| Power in | 5V pin | From Mini 5605V buck converter |
+| Sensor power | 3.3V pin | VL53L0X VCC — must be 3.3V, not 5V |
+| Ground | GND | Shared: ESP, buck converter, sensor |
 
 ---
 
@@ -25,19 +24,15 @@
 
 | Item | Qty | Notes |
 |---|---|---|
-| ESP32U dev board | 1 | USB-powered from bench supply |
-| OMRON G3VM-61A1 | 1 | Through-hole / DIP-4 package |
+| ESP32-C3 Super Mini | 1 | `esp32-c3-devkitm-1`, esp-idf framework |
+| OMRON G3VM-61A1 | 1 | SOP-4 package |
 | Resistor, 220Ω | 1 | Sets SSR LED drive current to ~10mA |
-| Reed switch (NO type) | 2 | Normally-open magnetic contact sensors |
-| MP1584EN buck module | 1 | Trimmer pre-set to 5V before bench test |
-
-| Breadboard | 1 | Half-size is sufficient |
-| Jumper wires | ~10 | Male-to-male for breadboard; male-to-bare for Marantec terminals |
-| USB cable | 1 | Power and serial flash |
+| CJVL53L0XV2 breakout | 1 | VL53L0X ToF sensor, I2C address 0x29 |
+| Mini 5605V buck module | 1 | Pre-set to 5V; powers ESP from Marantec 24V rail |
 
 ---
 
-## G3VM-61A1 Pin Reference (DIP-4)
+## G3VM-61A1 Pin Reference (SOP-4)
 
 ```
         ┌───────┐
@@ -51,138 +46,127 @@
 
 | Pin | Function | Connection |
 |---|---|---|
-| 1 | Input anode (LED +) | 220Ω resistor → D5 (GPIO14) |
+| 1 | Input anode (LED +) | 220Ω resistor → GPIO7 |
 | 2 | Input cathode (LED −) | GND |
 | 3 | Output | Marantec XB03 Terminal 1 (GND) |
 | 4 | Output | Marantec XB03 Terminal 2 (Pulse) |
 
-Pins 3 and 4 are the MOSFET drain/source — polarity does not matter for the output side.
+Pins 3 and 4 are the MOSFET drain/source — polarity does not matter on the output side.
 
 ---
 
 ## Wiring
 
-### 0 — Buck converter test
-
-Wire the MP1584EN as a standalone sub-circuit on the breadboard. The ESP32 is **not** connected during the buck test — power the ESP via USB as normal.
+### 1 — Buck converter
 
 ```
-Bench supply 24V (or 12V) ──── MP1584EN IN+
-Bench supply GND          ──── MP1584EN IN−
+Marantec XB03 Terminal 3 (24V) ──── Mini 5605V IN+
+Marantec XB03 Terminal 1 (GND) ──── Mini 5605V IN−
 
-MP1584EN OUT+ ──── [test point / meter probe]
-MP1584EN OUT− ──── GND rail
+Mini 5605V OUT+ ──── ESP32-C3 5V pin
+Mini 5605V OUT− ──── ESP32-C3 GND
 ```
 
-> **Pre-test:** Module output is preset to 5V — no trimmer adjustment needed. Power up and confirm with a multimeter before connecting the ESP.
+> **Before connecting the ESP:** Measure OUT+ to GND with a multimeter — must read **5.0V ±0.2V**.
 
 ---
 
-### 1 — SSR input drive
+### 2 — SSR input drive
 
 ```
-ESP32U GPIO17 ────  220Ω  ────  G3VM Pin 1 (anode)
-ESP32U GND    ─────────────────  G3VM Pin 2 (cathode)
+ESP32-C3 GPIO7 ──── 220Ω ──── G3VM Pin 1 (anode)
+ESP32-C3 GND   ─────────────  G3VM Pin 2 (cathode)
 ```
 
-The 220Ω resistor limits LED current to ~10mA: (3.3V − 1.2V) / 220Ω ≈ 9.5mA. This is within the G3VM's 5–50mA control range.
+The 220Ω resistor limits LED current to ~10mA: (3.3V − 1.2V) / 220Ω ≈ 9.5mA, within the G3VM's 5–50mA control range.
 
-### 2 — SSR output → Marantec XB03
+---
 
-```
-G3VM Pin 3  ─────────────────────────  Marantec XB03 Terminal 1 (GND)
-G3VM Pin 4  ─────────────────────────  Marantec XB03 Terminal 2 (Pulse)
-```
-
-When the input LED is energised, the MOSFET output closes, momentarily shorting Terminal 2 (Pulse) to Terminal 1 (GND) — identical to pressing the wall button. No voltage crosses from the ESP side to the Marantec side.
-
-### 3 — Reed switch, CLOSED sensor
+### 3 — SSR output → Marantec XB03
 
 ```
-ESP32U GPIO4 ────────────────────────  Reed switch terminal A
-ESP32U GND   ────────────────────────  Reed switch terminal B
+G3VM Pin 3 ──── Marantec XB03 Terminal 1 (GND)
+G3VM Pin 4 ──── Marantec XB03 Terminal 2 (Pulse)
 ```
 
-Internal pullup keeps GPIO4 HIGH when the switch is open. When the magnet closes the switch, GPIO4 is pulled LOW → door state = CLOSED.
+When GPIO7 goes HIGH, the MOSFET output closes, momentarily shorting Terminal 2 to Terminal 1 — identical to pressing the wall button. No voltage crosses from the ESP side to the Marantec side.
 
-### 4 — Reed switch, OPEN sensor
+---
+
+### 4 — VL53L0X ToF sensor
 
 ```
-ESP32U GPIO5 ────────────────────────  Reed switch terminal A
-ESP32U GND   ────────────────────────  Reed switch terminal B
+ESP32-C3 3.3V pin ──── VL53L0X VCC
+ESP32-C3 GND      ──── VL53L0X GND
+ESP32-C3 GPIO1    ──── VL53L0X SDA
+ESP32-C3 GPIO3    ──── VL53L0X SCL
 ```
 
-Same logic — GPIO5 pulled LOW when magnet closes switch → door state = OPEN.
+> **3.3V only:** Powering the module from 5V will put 5V logic on the I2C lines and damage the ESP32-C3. Use the 3.3V pin exclusively.
+
+The sensor is ceiling-mounted pointing down at the top of the door panel. No pull-up resistors are needed — the CJVL53L0XV2 breakout includes them.
 
 ---
 
 ## Connection Diagram
 
 ```
-                   ESP32U
-                 ┌──────────┐
-           EN  ──┤          ├── GPIO17 ── 220Ω ── G3VM Pin 1 (anode)
-          3V3 ──┤          ├── GND  ─────────────  G3VM Pin 2 (cathode)
-          GND ──┤          ├── GPIO5  ───────────  Reed OPEN  ──── GND
-           5V ──┤          ├── GPIO4  ───────────  Reed CLOSED ─── GND
-                 └──────────┘
-                     │
-                    USB (bench supply)
+                 ESP32-C3 Super Mini
+                 ┌──────────────────┐
+          3.3V ──┤                  ├── GPIO7 ── 220Ω ── G3VM Pin 1 (anode)
+           GND ──┤                  ├── GND  ─────────── G3VM Pin 2 (cathode)
+            5V ──┤                  ├── GPIO1 (SDA) ──── VL53L0X SDA
+                 │                  ├── GPIO3 (SCL) ──── VL53L0X SCL
+                 └──────────────────┘
+                       │       │
+                  5V pin     3.3V pin
+                       │       │
+              Mini 5605V    VL53L0X VCC
+              OUT+
 
-  G3VM Pin 3 ──────  Marantec XB03 Terminal 1 (GND)
-  G3VM Pin 4 ──────  Marantec XB03 Terminal 2 (Pulse)
+  G3VM Pin 3 ──── Marantec XB03 Terminal 1 (GND)
+  G3VM Pin 4 ──── Marantec XB03 Terminal 2 (Pulse)
 
-  Reed CLOSED: one lead → GPIO4, other lead → GND
-  Reed OPEN:   one lead → GPIO5, other lead → GND
+  Mini 5605V IN+ ──── Marantec XB03 Terminal 3 (24V)
+  Mini 5605V IN− ──── Marantec XB03 Terminal 1 (GND)
 ```
 
 ---
 
-## ESPHome YAML — Prototype Differences
+## Marantec XB03 Terminal Block
 
-The dev board YAML differs from the final build in two places only:
-
-```yaml
-# Dev board — replace the esp32-c3 block with:
-esp32:
-  board: esp32dev
-  framework:
-    type: arduino
-
-# Dev board — trigger pin is GPIO17, not GPIO10:
-switch:
-  - platform: gpio
-    pin: GPIO17          # ESP32U dev board; final C3 Mini uses GPIO10
-    id: garage_relay
-    restore_mode: ALWAYS_OFF
+```
+[ 3 ][ 1 ][ 2 ][ 4 ][ 70 ][ 71 ]
 ```
 
-Everything else (reed switch pins GPIO4/GPIO5, cover config, WiFi, API, OTA) is identical between dev board and final.
+| Terminal | Function | Connection |
+|---|---|---|
+| 1 | GND | G3VM Pin 3; buck IN− |
+| 2 | Pulse input | G3VM Pin 4 |
+| 3 | 24V DC output | Buck IN+ |
+| 70/71 | Photocell safety | Do not touch |
 
 ---
 
-## Bench Test Procedure (without Marantec connected)
+## Bench Test Procedure
 
-### Step 0 — Buck converter test (before any ESP connection)
+### Step 1 — Buck converter (before connecting ESP)
 
-1. Wire MP1584EN IN+/IN− to bench supply set to 24V (or 12V).
-2. Do **not** connect the ESP yet. Power up and measure OUT+ to GND — should read **5.0V ±0.1V** (preset, no adjustment needed).
-3. Power off. Buck sub-circuit is verified.
+1. Connect Mini 5605V IN+/IN− to Marantec XB03 terminals 3 and 1.
+2. Measure OUT+ to GND — must read **5.0V ±0.2V** before proceeding.
 
-### Step 1 — Firmware and SSR
+### Step 2 — Sensor detection
 
-8. Flash ESPHome firmware over USB. Confirm the device appears in Home Assistant.
-9. With a multimeter set to continuity/resistance, probe across **G3VM pins 3 and 4**.
-   - At rest: open circuit.
-   - Trigger the SSR from HA (or Home Assistant dev tools): output should close (beep / near-0Ω) for ~300ms then release.
+3. Flash firmware and connect to logs: `esphome logs garage_door_v2.yaml`
+4. On boot, look for: `[I][i2c.idf:069]: Found i2c device at address 0x29`
+5. If 0x29 is not listed, stop and check SDA/SCL wiring and VCC before proceeding.
 
-### Step 2 — Reed switches
+### Step 3 — SSR trigger
 
-10. Touch a piece of wire across the two leads of each reed switch in turn.
-    - Shorting the CLOSED reed: HA cover entity should report **Closed**.
-    - Shorting the OPEN reed: HA cover entity should report **Open**.
-    - Both open: entity should show **Opening** or **Closing** (depending on last command).
+6. In Home Assistant → Developer Tools → Actions, call `cover.open_cover` on the Garage Door entity.
+7. Probe G3VM pins 3 and 4 with a multimeter set to continuity — should close (beep) for ~300ms then release.
 
-### Step 3 — Connect to Marantec
+### Step 4 — End-to-end
 
-11. Only after all above steps pass, connect G3VM pins 3 and 4 to Marantec XB03 terminals 1 and 2.
+8. Connect G3VM output to Marantec XB03 terminals 1 and 2.
+9. Trigger open and close from HA and confirm the cover entity transitions correctly through Open → Closing → Closed → Opening → Open.
