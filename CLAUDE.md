@@ -4,18 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Smart garage door controller for a **Marantec Comfort 280** opener. ESP32U (esp32dev) running ESPHome firmware, integrated into Home Assistant via the native ESPHome API, then exposed to Apple HomeKit via Homebridge.
+Smart garage door controller for a **Marantec Comfort 280** opener. **V2 (ESP32-C3 Super Mini) is the current shipped version.** V1 (ESP32U protoboard) is a retired prototype — its firmware is frozen.
 
-V1 design rationale is in `garage_door_automation.md`. V2 design rationale is in `garage_door_v2_design.md`. Read the relevant doc before making firmware or hardware decisions.
+V1 design rationale is in `garage_door_automation.md`. V2 design rationale is in `garage_door_v2_design.md`. All active work is in `garage_door_v2.yaml`.
 
 ## Versions
 
 | Version | Status | Firmware | Description |
 |---|---|---|---|
-| V1 | **Complete** | `garage_door.yaml` | ESP32U protoboard — impulse trigger, optimistic cover state |
-| V2 | In progress | `garage_door_v2.yaml` | Adds VL53L0X ToF sensor for Closed / Open / Moving state |
+| V1 | Prototype (retired) | `garage_door.yaml` | ESP32U protoboard — impulse trigger, optimistic cover state |
+| V2 | **Current** | `garage_door_v2.yaml` | ESP32-C3 Super Mini — VL53L0X ToF sensor, real open/closed state |
 
-## V1 Architecture (complete — do not modify `garage_door.yaml` for V1 features)
+## V1 Architecture (retired prototype — `garage_door.yaml` is frozen)
 
 ```
 Apple Home / Siri
@@ -107,13 +107,11 @@ Full close-then-reopen cycle observed (door started open):
 **Conclusion:** OPEN = ~0.67m (reliable, immediate). CLOSED = sustained NaN (reliable after 3s). Implemented as Option B (sustained NaN).
 
 Calibrated values:
-- `open_distance_m: "0.72"` — ~0.67m measured + 5cm margin (2026-05-20)
+- `open_distance_m: "0.75"` — ~0.704m measured + 5cm margin (sensor repositioned 2026-05-20)
 - `nan_closed_count: "6"` — 6 × 500ms = 3s sustained NaN → CLOSED
 
 **Option B — Sustained NaN for CLOSED detection:**
-After `nan_closed_count` consecutive NaN readings AND `had_valid_reading=true` (door panel has been detected at least once since boot) → CLOSED.
-
-Trade-off: if the device reboots while the door is closed, `had_valid_reading` starts false and CLOSED is never declared until the door is opened and closed again. This is intentional — it prevents falsely declaring CLOSED from a malfunctioning sensor on boot.
+After `nan_closed_count` consecutive NaN readings → CLOSED. The garage defaults to CLOSED on boot (normal physical state — low risk of incorrect assumption). No `had_valid_reading` guard is needed.
 
 ### V2 Calibration
 

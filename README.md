@@ -10,8 +10,8 @@ Fully local — no cloud dependency. Self-powered from the opener's own 24V DC a
 
 | Version | Status | Board | State detection |
 |---|---|---|---|
-| V1 | Complete | ESP32U (esp32dev) | Optimistic (no sensor) |
-| V2 | In progress | ESP32-C3 Super Mini | VL53L0X ToF — real open/closed/moving |
+| V1 | Prototype (retired) | ESP32U (esp32dev) | Optimistic (no sensor) |
+| V2 | **Current** | ESP32-C3 Super Mini | VL53L0X ToF — real open/closed state |
 
 ---
 
@@ -108,10 +108,6 @@ python3 -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(3
 ### Flash
 
 ```bash
-# V1
-esphome run garage_door.yaml
-
-# V2 (active development)
 esphome run garage_door_v2.yaml
 ```
 
@@ -151,7 +147,8 @@ Case/                      # 3D print files (base + lid STL)
 - [x] V1: optimistic cover state in HA/HomeKit
 - [x] V2: board migrated to ESP32-C3 Super Mini
 - [x] V2: VL53L0X ToF sensor — real closed/open state detection
-- [x] V2: sustained-NaN open detection (Option B) implemented
-- [ ] V2: calibrate thresholds in final installed position
-- [ ] V2: install in garage and verify end-to-end
+- [x] V2: sustained-NaN closed detection implemented
+- [x] V2: calibrate thresholds in final installed position
+- [x] V2: install in garage and verify end-to-end
+- [x] V2: HomeKit integration confirmed working
 - [ ] Mount in 3D printed enclosure
