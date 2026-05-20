@@ -149,24 +149,12 @@ open_distance_m: "<reading> + 0.05"   # add 5cm margin against vibration flicker
 
 Close the door fully and watch the `Garage Door Distance` sensor in HA for 10–15 seconds. It should read NaN consistently (panel has dropped below sensor range). If it returns a valid distance, the sensor range is longer than expected — reassess the mounting position.
 
-**Step 5 — Measure travel time**
-
-Time the door from fully closed to fully open (and back). Set:
-```yaml
-travel_time_s: "<seconds>s"
-```
-Add 2–3 seconds margin so the timeout only fires if the door genuinely stalls.
-
-**Step 6 — Reflash and verify**
+**Step 5 — Reflash and verify**
 
 ```bash
 esphome run garage_door_v2.yaml   # OTA flash with updated substitutions
 ```
 Trigger open and close from HA and confirm the cover entity transitions correctly through Opening → Open → Closing → Closed.
-
-**Step 7 — Test stop behaviour**
-
-Trigger open, then immediately send stop mid-travel. Observe what the Marantec does on the next open/close command — confirm whether it resumes or reverses. Update the stop caveat note once confirmed.
 
 ### V2 Key Config Facts
 
@@ -189,6 +177,6 @@ The C3 requires specific WiFi config to connect reliably — arduino framework a
 - **`reboot_timeout: 15min`** — reboots if WiFi never connects (recovery from bad state)
 - **2.4 GHz only** — ESP32-C3 has no 5 GHz radio; SSID must be on 2.4 GHz band
 
-### Stop Button Caveat (unconfirmed — test before relying on it)
+### Stop Button Behaviour (confirmed 2026-05-20)
 
-The Marantec Comfort 280 impulse cycle is: **Open → Stop → Close → Stop → Open**. After a stop mid-travel, the next impulse **reverses direction** rather than resuming. ESPHome does not model this — if it issues an open command after a mid-travel stop, the Marantec may close instead. Verify physical behaviour before building any automations that depend on stop + resume.
+The Marantec Comfort 280 impulse cycle is: **Open → Stop → Close → Stop → Open**. After a stop mid-travel, the next impulse **reverses direction** rather than resuming. ESPHome does not model this — if it issues an open command after a mid-travel stop, the Marantec will close instead. Do not build automations that depend on stop + resume from HA.

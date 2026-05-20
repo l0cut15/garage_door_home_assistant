@@ -13,7 +13,7 @@ substitutions:
   # nan_closed_count: consecutive NaN readings required to declare CLOSED.
   #   At 500ms update interval: 6 = 3s. Garage defaults to CLOSED on boot
   #   (normal physical state — low risk of incorrect assumption).
-  open_distance_m: "0.72"    # measured ~0.67m + 5cm margin (2026-05-19)
+  open_distance_m: "0.75"    # measured ~0.704m + 5cm margin (2026-05-20, repositioned)
   nan_closed_count: "6"      # 6 × 500ms = 3s sustained NaN → CLOSED
 
 esphome:
@@ -45,6 +45,7 @@ bluetooth_proxy:
   active: true
 
 logger:
+  level: WARN
 
 api:
   encryption:
@@ -122,15 +123,14 @@ script:
 #   NaN sustained >= nan_closed_count × 500ms → CLOSED (panel out of range)
 #   anything else                           → indeterminate
 #
-# STOP BUTTON — BEHAVIOUR UNCONFIRMED:
-# The Marantec Comfort 280 impulse cycle is: Open → Stop → Close → Stop → Open.
-# After a stop mid-travel, the next impulse REVERSES direction (does not resume).
-# ESPHome is unaware of this — if it issues an open pulse after a mid-travel stop,
-# the Marantec may close instead. Test physically before relying on stop from HA.
+# STOP BUTTON — confirmed 2026-05-20:
+# Marantec Comfort 280 cycle: Open → Stop → Close → Stop → Open.
+# After stop mid-travel, next impulse REVERSES — do not rely on stop + resume from HA.
 cover:
   - platform: template
     name: "Garage Door"
     device_class: garage
+    update_interval: 500ms
     lambda: |-
       if (!id(door_distance).has_state()) {
         return {};
