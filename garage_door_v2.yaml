@@ -89,9 +89,8 @@ sensor:
           if (isnan(x)) {
             nan_count++;
             id(nan_streak)++;
-            if (nan_count < 2) return {};
-            avg = NAN; last_pub = NAN;
-            return x;
+            if (nan_count == 2) { avg = NAN; last_pub = NAN; return x; }
+            return {};
           }
           nan_count = 0;
           id(nan_streak) = 0;
