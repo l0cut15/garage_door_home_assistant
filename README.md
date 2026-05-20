@@ -1,4 +1,4 @@
-# Garage Door Controller — Marantec Comfort 280
+# Garage Door Controller Home Assitant and HomeKit Integration
 
 ESP32-C3 based smart garage door controller for the **Marantec Comfort 280** opener. Runs ESPHome firmware, integrates with Home Assistant, and is exposed to Apple HomeKit via Homebridge.
 
