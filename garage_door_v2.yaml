@@ -130,7 +130,6 @@ cover:
   - platform: template
     name: "Garage Door"
     device_class: garage
-    update_interval: 500ms
     lambda: |-
       if (!id(door_distance).has_state()) {
         return {};
