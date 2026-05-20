@@ -13,8 +13,8 @@ substitutions:
   # nan_closed_count: consecutive NaN readings required to declare CLOSED.
   #   At 500ms update interval: 6 = 3s. Garage defaults to CLOSED on boot
   #   (normal physical state — low risk of incorrect assumption).
-  open_distance_m: "0.75"    # measured ~0.704m + 5cm margin (2026-05-20, repositioned)
-  nan_closed_count: "6"      # 6 × 500ms = 3s sustained NaN → CLOSED
+  open_distance_m: "0.75" # measured ~0.704m + 5cm margin (2026-05-20, repositioned)
+  nan_closed_count: "6" # 6 × 500ms = 3s sustained NaN → CLOSED
 
 esphome:
   name: ${device_name}
@@ -32,7 +32,7 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   power_save_mode: none
-  output_power: 8.5
+  output_power: 10
   fast_connect: true
   reboot_timeout: 15min
   ap:
@@ -42,10 +42,13 @@ wifi:
 captive_portal:
 
 bluetooth_proxy:
-  active: true
+  active: false
 
 logger:
-  level: WARN
+  level: DEBUG
+  logs:
+    sensor: WARN
+    vl53l0x: WARN
 
 api:
   encryption:
@@ -61,7 +64,7 @@ globals:
   - id: nan_streak
     type: int
     restore_value: false
-    initial_value: '0'
+    initial_value: "0"
 
 # ── I2C bus ──────────────────────────────────────────────────────────────────
 i2c:
@@ -79,7 +82,7 @@ sensor:
     name: "Garage Door Distance"
     id: door_distance
     address: 0x29
-    update_interval: 500ms
+    update_interval: 1s
     long_range: true
     filters:
       - lambda: |-
