@@ -79,50 +79,41 @@ ESP32-C3 Super Mini (ESPHome)
 
 ### V2 Door State Logic
 
-Cover state is derived from VL53L0X distance thresholds (substitutions in `garage_door_v2.yaml`):
+The sensor sits on the ceiling pointing at the top of the door panel.
 
-| Distance reading | State |
-|---|---|
-| ≤ `closed_distance_m` | Closed |
-| ≥ `open_distance_m` | Open |
-| Between thresholds | Indeterminate — ESPHome shows Opening/Closing during action, else last known state |
-| NaN / 0 / no reading | Indeterminate (sensor not ready or out of range) |
+| Distance reading | Physical meaning | Cover state |
+|---|---|---|
+| ≤ `open_distance_m` | Panel is up near sensor — door is open | **Open** |
+| > `open_distance_m` (valid) | Panel moving — door is transitioning | Indeterminate |
+| NaN sustained ≥ `nan_closed_count` × 500ms | Panel dropped away — door is closed | **Closed** |
+| NaN without prior valid reading | Boot state unknown (door closed before first open) | Indeterminate |
 
-**NaN ambiguity:** When the door is fully open, the sensor may read NaN (floor is beyond the ~1.38m reliable range). The current firmware treats NaN as indeterminate, so the door may never report OPEN if the floor distance exceeds sensor range. See "Open Detection Design Decision" below.
-
-### Open Detection Design Decision
+### Closed Detection Design Decision
 
 **Sensor range confirmed from bench test (2026-05-19):** 20mm minimum, ~1.38m stable maximum, sporadic NaN above ~1.4m, unreliable past ~1.5m.
 
-**Real install data — Position 1 (2026-05-19):**
+**Real install data (2026-05-20):**
 
-Full open-then-close cycle observed:
+Full close-then-reopen cycle observed (door started open):
 
 | Phase | Reading | Notes |
 |---|---|---|
-| Door closed, stationary | ~0.67m stable | Sensor sees top panel ~67cm below ceiling |
-| Opening transition | 0.67m → 0.99m over ~3s | Panel moving away as door travels up |
-| Door fully open | NaN sustained | Panel out of sensor range; floor too far |
-| Closing transition | NaN → 0.99m → 0.68m over ~3s | Panel returning |
-| Door closed, stationary | ~0.68m stable | Same as closed above |
+| Door open, stationary | ~0.67m stable | Sensor sees top panel ~67cm below ceiling |
+| Closing transition | 0.67m → 0.99m → NaN over ~3s | Panel dropping away from sensor |
+| Door fully closed | NaN sustained | Panel out of sensor range |
+| Opening transition | NaN → 0.99m → 0.67m over ~6s | Panel returning toward sensor |
+| Door open, stationary | ~0.67m stable | Same as open above |
 
-**Conclusion:** CLOSED = ~0.67m (reliable). OPEN = sustained NaN (reliable). The `open_distance_m` threshold is never reached in normal operation — the door sweeps briefly through 0.67–0.99m during travel then goes immediately to NaN. Option A (threshold only) cannot detect OPEN for this mounting position. **Option B (sustained NaN) is required.**
+**Conclusion:** OPEN = ~0.67m (reliable, immediate). CLOSED = sustained NaN (reliable after 3s). Implemented as Option B (sustained NaN).
 
-Calibrated values for this position:
-- `closed_distance_m: "0.72"` — 0.67m measured + 5cm margin
-- `open_distance_m: "1.10"` — set above realistic range; never triggers; OPEN detected via NaN (Option B, pending implementation)
+Calibrated values:
+- `open_distance_m: "0.72"` — ~0.67m measured + 5cm margin (2026-05-20)
+- `nan_closed_count: "6"` — 6 × 500ms = 3s sustained NaN → CLOSED
 
-**Options for NaN-as-open handling:**
+**Option B — Sustained NaN for CLOSED detection:**
+After `nan_closed_count` consecutive NaN readings AND `had_valid_reading=true` (door panel has been detected at least once since boot) → CLOSED.
 
-| Option | How it works | Pro | Con |
-|---|---|---|---|
-| **A — Threshold only** (current) | `d >= open_distance_m` → OPEN; NaN → indeterminate | No code change | Cannot detect OPEN for this mount position |
-| **B — Sustained NaN** | After N consecutive NaN readings (e.g. 6 = 3s at 500ms) AND at least one valid reading has occurred since boot → OPEN | Simple; handles wall-button opens | Sensor hardware failure = false OPEN |
-| **C — Sustained NaN (threshold-gated)** | Same as B, but only counts NaN streak if the last valid reading was above `open_distance_m` | More robust against cold-start and sensor faults | Misses wall-button opens where distance never crossed threshold |
-
-**Mounting decision (2026-05-19): horizontal mount confirmed.** Vertical mount evaluated and ruled out — vertical gives ~0.20m closed and NaN open (no more information than horizontal), with messier cabling. Horizontal mount is the final choice.
-
-**Decision: implement Option B.** Implemented in firmware.
+Trade-off: if the device reboots while the door is closed, `had_valid_reading` starts false and CLOSED is never declared until the door is opened and closed again. This is intentional — it prevents falsely declaring CLOSED from a malfunctioning sensor on boot.
 
 ### V2 Calibration
 
@@ -147,21 +138,16 @@ Alternatively, watch the log stream:
 [D][sensor:094]: 'Garage Door Distance': Sending state 0.18 m
 ```
 
-**Step 3 — Measure closed distance**
+**Step 3 — Measure open distance**
 
-Close the door fully. Let the reading settle (a few seconds). Note the value, then set:
+Open the door fully. Let the reading settle (a few seconds). Note the value — this is the distance from the sensor to the top of the door panel when retracted. Set:
 ```yaml
-closed_distance_m: "<reading> + 0.05"   # add 5cm margin against vibration flicker
+open_distance_m: "<reading> + 0.05"   # add 5cm margin against vibration flicker
 ```
 
-**Step 4 — Observe open-state reading (critical for design decision)**
+**Step 4 — Confirm closed-state reading**
 
-Open the door fully and watch the `Garage Door Distance` sensor in HA for 10–15 seconds. Note:
-
-- **Valid distance returned (e.g. 0.8m):** door panel is still within sensor range (retracted along ceiling tracks). Set `open_distance_m` to that reading minus 5cm margin. Current threshold logic works — no NaN handling needed.
-- **NaN returned consistently:** floor is beyond sensor range (~1.38m max). The NaN handling option must be chosen and implemented before the cover entity will reliably report OPEN. See "Open Detection Design Decision" above.
-
-Record the actual reading for each mounting position tested.
+Close the door fully and watch the `Garage Door Distance` sensor in HA for 10–15 seconds. It should read NaN consistently (panel has dropped below sensor range). If it returns a valid distance, the sensor range is longer than expected — reassess the mounting position.
 
 **Step 5 — Measure travel time**
 
