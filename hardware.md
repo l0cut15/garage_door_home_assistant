@@ -2,7 +2,7 @@
 
 **Board:** ESP32-C3 Super Mini  
 **Power:** Mini 5605V buck converter (Marantec 24V → 5V)  
-**Isolation:** OMRON G3VM-61A1 MOSFET SSR (SOP-4)  
+**Isolation:** OMRON G3VM-61A1 MOSFET SSR (DIP-4)  
 **Sensor:** CJVL53L0XV2 (VL53L0X ToF breakout) — ceiling-mounted, I2C
 
 ---
@@ -29,7 +29,7 @@ Prices are Aliexpress approximate retail in USD.
 | | | | | **Total** | **~$15** |
 
 **Notes:**
-- The G3VM-61A1 is SMD (SOP-4) — a small breakout adapter board (~$0.50) makes hand-soldering manageable
+- The G3VM-61A1 is DIP-4 (through-hole) — solders directly onto perfboard
 - The CJVL53L0XV2 does **not** include onboard pull-up resistors — the 47kΩ resistors are required. If rebuilding, 4.7kΩ is the better value for the 1.4m cable run
 - The Marantec XB03 provides 24V @ 50mA max — the Mini 5605V is sized for that supply constraint
 
@@ -48,7 +48,7 @@ Prices are Aliexpress approximate retail in USD.
 
 ---
 
-## G3VM-61A1 Pin Reference (SOP-4)
+## G3VM-61A1 Pin Reference (DIP-4)
 
 ```
         ┌───────┐
