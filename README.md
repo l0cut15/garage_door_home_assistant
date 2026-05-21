@@ -50,7 +50,7 @@ ESP32-C3 Super Mini
 
 ## Wiring
 
-See [`breadboard.md`](breadboard.md) for full wiring diagrams.
+See [`hardware.md`](hardware.md) for the bill of materials and full wiring diagrams.
 
 ### Marantec XB03 Terminal Block
 
@@ -114,7 +114,7 @@ The [Homebridge addon](https://github.com/homebridge/homebridge-homeassistant) r
 
 ```
 garage_door_v2.yaml        # ESPHome firmware
-breadboard.md              # Wiring guide
+hardware.md                # Bill of materials and wiring guide
 secrets.example.yaml       # Secrets template
 Board/                     # Fritzing layout files
 3DPrint/                   # 3D print files (STL, source, mounts)
