@@ -9,24 +9,24 @@
 
 ## Bill of Materials
 
-Prices are Aliexpress/eBay rough estimates in AUD. Western suppliers (Core Electronics, etc.) will be 2–3× higher.
+Prices are Aliexpress approximate retail in USD.
 
-| # | Component | Detail | Qty | Unit (AUD) | Line Total |
+| # | Component | Detail | Qty | Unit (USD) | Line Total |
 |---|---|---|---|---|---|
-| 1 | ESP32-C3 Super Mini | `esp32-c3-devkitm-1` — MCU + WiFi | 1 | $4 | $4 |
-| 2 | CJVL53L0XV2 | VL53L0X ToF distance sensor breakout | 1 | $4 | $4 |
-| 3 | Mini 5605V | Adjustable buck converter, 24V→5V | 1 | $3 | $3 |
-| 4 | G3VM-61A1 | Omron optocoupled SSR — galvanic isolation for Marantec trigger | 1 | $3 | $3 |
+| 1 | ESP32-C3 Super Mini | `esp32-c3-devkitm-1` — MCU + WiFi | 1 | $2.50 | $2.50 |
+| 2 | CJVL53L0XV2 | VL53L0X ToF distance sensor breakout | 1 | $2.50 | $2.50 |
+| 3 | Mini 5605V | Adjustable buck converter, 24V→5V | 1 | $2 | $2 |
+| 4 | G3VM-61A1 | Omron optocoupled SSR — galvanic isolation for Marantec trigger | 1 | $2 | $2 |
 | 5 | Resistor, 220Ω | Current limiting, GPIO7 → SSR | 1 | <$0.10 | <$0.10 |
 | 6 | Resistor, 47kΩ | I2C pull-ups — SDA and SCL to 3.3V | 2 | <$0.10 | <$0.10 |
-| 7 | Perfboard 40×60mm | Solder-on stripboard, permanent mount | 1 | $2 | $2 |
-| 8 | Pin headers | Male/female for module mounting on perfboard | 1 set | $1 | $1 |
-| 9 | Hookup wire | Short runs on perfboard between components | — | $1 | $1 |
-| 10 | Screw terminal block | 2-way, for Marantec XB03 connection | 1 | $0.50 | $0.50 |
-| 11 | Ethernet patch cable | 1.4m, I2C extension to ceiling sensor | 1 | $4 | $4 |
-| 12 | 10mm tube | Sensor bracket arm (aluminium or similar), ~150mm | 1 | $2 | $2 |
-| 13 | PLA/PETG filament | Vertical sensor bracket (`3DPrint/Roof Bracket Vertical Mount.stl`), ~15g | — | $0.50 | $0.50 |
-| | | | | **Total** | **~$25** |
+| 7 | Perfboard 40×60mm | Solder-on stripboard, permanent mount | 1 | $1 | $1 |
+| 8 | Pin headers | Male/female for module mounting on perfboard | 1 set | $0.50 | $0.50 |
+| 9 | Hookup wire | Short runs on perfboard between components | — | $0.50 | $0.50 |
+| 10 | Screw terminal block | 2-way, for Marantec XB03 connection | 1 | $0.30 | $0.30 |
+| 11 | Ethernet patch cable | 1.4m, I2C extension to ceiling sensor | 1 | $2.50 | $2.50 |
+| 12 | 10mm tube | Sensor bracket arm (aluminium or similar), ~150mm | 1 | $1 | $1 |
+| 13 | PLA/PETG filament | Vertical sensor bracket (`3DPrint/Roof Bracket Vertical Mount.stl`), ~15g | — | $0.30 | $0.30 |
+| | | | | **Total** | **~$15** |
 
 **Notes:**
 - The G3VM-61A1 is SMD (SOP-4) — a small breakout adapter board (~$0.50) makes hand-soldering manageable
