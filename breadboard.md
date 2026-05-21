@@ -27,6 +27,7 @@
 | ESP32-C3 Super Mini | 1 | `esp32-c3-devkitm-1`, esp-idf framework |
 | OMRON G3VM-61A1 | 1 | SOP-4 package |
 | Resistor, 220Ω | 1 | Sets SSR LED drive current to ~10mA |
+| Resistor, 47kΩ | 2 | I2C pull-ups — SDA and SCL to 3.3V (see note below) |
 | CJVL53L0XV2 breakout | 1 | VL53L0X ToF sensor, I2C address 0x29 |
 | Mini 5605V buck module | 1 | Pre-set to 5V; powers ESP from Marantec 24V rail |
 
@@ -100,11 +101,16 @@ ESP32-C3 3.3V pin ──── VL53L0X VCC
 ESP32-C3 GND      ──── VL53L0X GND
 ESP32-C3 GPIO1    ──── VL53L0X SDA
 ESP32-C3 GPIO3    ──── VL53L0X SCL
+
+3.3V ──── 47kΩ ──── GPIO1 (SDA)   ← external pull-up
+3.3V ──── 47kΩ ──── GPIO3 (SCL)   ← external pull-up
 ```
 
 > **3.3V only:** Powering the module from 5V will put 5V logic on the I2C lines and damage the ESP32-C3. Use the 3.3V pin exclusively.
 
-The sensor is ceiling-mounted pointing down at the top of the door panel. No pull-up resistors are needed — the CJVL53L0XV2 breakout includes them.
+The sensor is ceiling-mounted via 1.4m of ethernet cable on a 3D-printed vertical bracket (`3DPrint/Roof Bracket Vertical Mount.stl`), pointing straight down at the top of the door panel.
+
+**I2C pull-ups:** The CJVL53L0XV2 breakout includes onboard 4.7kΩ pull-ups. Two additional 47kΩ resistors are fitted on the breadboard (SDA and SCL to 3.3V). In parallel with the onboard 4.7kΩ resistors the combined pull-up is ~4.3kΩ — negligible change, but provided for completeness. **I2C must be run at 10kHz** — the 1.4m ethernet cable has high capacitance; 100kHz causes data corruption that produces phantom distance readings without generating I2C bus errors.
 
 ---
 
@@ -115,12 +121,12 @@ The sensor is ceiling-mounted pointing down at the top of the door panel. No pul
                  ┌──────────────────┐
           3.3V ──┤                  ├── GPIO7 ── 220Ω ── G3VM Pin 1 (anode)
            GND ──┤                  ├── GND  ─────────── G3VM Pin 2 (cathode)
-            5V ──┤                  ├── GPIO1 (SDA) ──── VL53L0X SDA
-                 │                  ├── GPIO3 (SCL) ──── VL53L0X SCL
-                 └──────────────────┘
-                       │       │
-                  5V pin     3.3V pin
-                       │       │
+            5V ──┤                  ├── GPIO1 (SDA) ──┬─ VL53L0X SDA
+                 │                  ├── GPIO3 (SCL) ──┼─ VL53L0X SCL
+                 └──────────────────┘                 │
+                       │       │                      │
+                  5V pin     3.3V pin ── 47kΩ ─── GPIO1 (SDA)  ← pull-up
+                       │       │     └─ 47kΩ ─── GPIO3 (SCL)  ← pull-up
               Mini 5605V    VL53L0X VCC
               OUT+
 
