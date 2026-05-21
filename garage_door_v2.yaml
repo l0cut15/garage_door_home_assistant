@@ -3,18 +3,18 @@ substitutions:
   friendly_name: Garage Door-v2
 
   # ── Calibration ──────────────────────────────────────────────────────────────
-  # Sensor is on the ceiling, pointing at the top of the door panel.
-  # Door OPEN:   panel is up near the sensor → valid reading ~0.67m
-  # Door CLOSED: panel has dropped away     → NaN (out of range)
+  # Sensor is on the ceiling, pointing DOWN at the top of the door panel.
+  # Door OPEN:   panel is up near the sensor → valid reading ~0.20m
+  # Door CLOSED: panel has dropped away     → ≥1.00m (floor/car) or NaN
   #
-  # open_distance_m: reading when door is fully open (panel detected). Measured
-  #   ~0.67m; +5cm margin.
-  #
-  # nan_closed_count: consecutive NaN readings required to declare CLOSED.
-  #   At 500ms update interval: 6 = 3s. Garage defaults to CLOSED on boot
-  #   (normal physical state — low risk of incorrect assumption).
-  open_distance_m: "0.75" # measured ~0.704m + 5cm margin (2026-05-20, repositioned)
-  nan_closed_count: "6" # 6 × 500ms = 3s sustained NaN → CLOSED
+  # open_distance_m: threshold below which door is OPEN. Measured ~0.20m; +10cm margin.
+  # closed_min_distance_m: threshold above which door is CLOSED (covers parked car).
+  # open_confirm_count:  consecutive readings ≤ open_distance_m → OPEN.
+  # closed_confirm_count: consecutive readings ≥ closed_min_distance_m or NaN → CLOSED.
+  open_distance_m: "0.30"       # reads ~0.20m when open; +10cm margin
+  closed_min_distance_m: "1.00" # reads ≥1.0m (floor/car) or NaN when closed
+  open_confirm_count: "3"       # 3 × 1s = 3s sustained → OPEN
+  closed_confirm_count: "6"     # 6 × 1s = 6s sustained → CLOSED
 
 esphome:
   name: ${device_name}
@@ -41,9 +41,6 @@ wifi:
 
 captive_portal:
 
-bluetooth_proxy:
-  active: false
-
 logger:
   level: DEBUG
   logs:
@@ -58,10 +55,17 @@ ota:
   - platform: esphome
     password: !secret ota_password
 
-# ── NaN streak tracking ───────────────────────────────────────────────────────
-# nan_streak: counts consecutive NaN readings; cover lambda declares CLOSED at threshold.
+# ── Streak tracking ───────────────────────────────────────────────────────────
+# open_streak:   consecutive valid readings ≤ open_distance_m → OPEN
+# closed_streak: consecutive readings ≥ closed_min_distance_m OR NaN → CLOSED
+#   closed_streak accepts both NaN and far valid readings so a parked car
+#   (e.g. 1.5m) still contributes to CLOSED rather than resetting it.
 globals:
-  - id: nan_streak
+  - id: open_streak
+    type: int
+    restore_value: false
+    initial_value: "0"
+  - id: closed_streak
     type: int
     restore_value: false
     initial_value: "0"
@@ -74,9 +78,9 @@ i2c:
   scan: true
 
 # ── VL53L0X distance sensor ───────────────────────────────────────────────────
-# Ceiling mount, pointing at door top. Open reads ~0.67m; closed reads NaN.
-# EMA filter smooths noisy valid readings; NaN passes through unchanged so the
-# nan_streak counter still fires correctly.
+# Ceiling mount, pointing down at door top panel.
+# Open reads ~0.20m (panel near sensor); closed reads NaN or ≥1.0m (floor/car).
+# EMA smooths valid readings. Dead zone 0.30m–1.00m = indeterminate (door in transit).
 sensor:
   - platform: vl53l0x
     name: "Garage Door Distance"
@@ -91,13 +95,23 @@ sensor:
           static int nan_count = 0;
           if (isnan(x)) {
             nan_count++;
-            id(nan_streak)++;
+            id(closed_streak)++;
+            id(open_streak) = 0;
             if (nan_count == 2) { avg = NAN; last_pub = NAN; return x; }
             return {};
           }
           nan_count = 0;
-          id(nan_streak) = 0;
           avg = isnan(avg) ? x : avg * 0.5f + x * 0.5f;
+          if (avg <= ${open_distance_m}) {
+            id(open_streak)++;
+            id(closed_streak) = 0;
+          } else if (avg >= ${closed_min_distance_m}) {
+            id(closed_streak)++;
+            id(open_streak) = 0;
+          } else {
+            id(open_streak) = 0;
+            id(closed_streak) = 0;
+          }
           if (!isnan(last_pub) && fabsf(avg - last_pub) < 0.02f) return {};
           last_pub = avg;
           return avg;
@@ -121,9 +135,9 @@ script:
 
 # ── Garage door cover ────────────────────────────────────────────────────────
 # State logic:
-#   distance <= open_distance_m             → OPEN  (panel detected near sensor)
-#   NaN sustained >= nan_closed_count × 500ms → CLOSED (panel out of range)
-#   anything else                           → indeterminate
+#   open_streak  ≥ open_confirm_count               → OPEN  (panel near sensor, ≤0.30m)
+#   closed_streak ≥ closed_confirm_count             → CLOSED (panel away, ≥1.0m or NaN)
+#   anything else                                   → indeterminate (transitioning)
 #
 # STOP BUTTON — confirmed 2026-05-20:
 # Marantec Comfort 280 cycle: Open → Stop → Close → Stop → Open.
@@ -136,20 +150,19 @@ cover:
       if (!id(door_distance).has_state()) {
         return {};
       }
-      float d = id(door_distance).state;
-      if (!isnan(d) && d > 0) {
-        if (d <= ${open_distance_m}) {
-          return COVER_OPEN;
-        }
-        return {};
+      if (id(open_streak) >= ${open_confirm_count}) {
+        return COVER_OPEN;
       }
-      if (id(nan_streak) >= ${nan_closed_count}) {
+      if (id(closed_streak) >= ${closed_confirm_count}) {
         return COVER_CLOSED;
       }
       return {};
     open_action:
-      - script.execute: trigger_pulse
+      - script.execute:
+          id: trigger_pulse
     close_action:
-      - script.execute: trigger_pulse
+      - script.execute:
+          id: trigger_pulse
     stop_action:
-      - script.execute: trigger_pulse
+      - script.execute:
+          id: trigger_pulse

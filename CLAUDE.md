@@ -77,41 +77,41 @@ ESP32-C3 Super Mini (ESPHome)
 
 **CJVL53L0XV2 wiring note:** Power the module from the C3 Mini's **3.3V pin**, not 5V. The module accepts both voltages, but if powered at 5V its SDA/SCL lines will be 5V logic — this will damage the C3 Mini. At 3.3V, I2C lines are directly compatible with no level shifting required.
 
+**Sensor cable:** The CJVL53L0XV2 is extended from the ESP32-C3 to the ceiling mount via 1.4m of ethernet cable. I2C is run at 10kHz — do not increase; at 100kHz the cable capacitance causes I2C data corruption that manifests as phantom distance readings (not bus errors).
+
+**Sensor mount:** The sensor is mounted on a 3D-printed vertical bracket (`3DPrint/Roof Bracket Vertical Mount.stl`) that positions it perpendicular to the ceiling, pointing straight down at the door panel. The previous horizontal ceiling mount caused the sensor to see the opener rail and drive mechanism when the door was closed, producing persistent phantom readings. The vertical bracket avoids this by narrowing the field of view to the door panel only.
+
 ### V2 Door State Logic
 
-The sensor sits on the ceiling pointing at the top of the door panel.
+The sensor is mounted vertically on the ceiling, pointing straight down at the top of the door panel.
 
 | Distance reading | Physical meaning | Cover state |
 |---|---|---|
-| ≤ `open_distance_m` | Panel is up near sensor — door is open | **Open** |
-| > `open_distance_m` (valid) | Panel moving — door is transitioning | Indeterminate |
-| NaN sustained ≥ `nan_closed_count` × 500ms | Panel dropped away — door is closed | **Closed** |
-| NaN without prior valid reading | Boot state unknown (door closed before first open) | Indeterminate |
+| ≤ `open_distance_m` sustained ≥ `open_confirm_count` × 1s | Panel is up near sensor — door is open | **Open** |
+| `open_distance_m` < d < `closed_min_distance_m` | Panel moving — door is transitioning | Indeterminate |
+| ≥ `closed_min_distance_m` or NaN, sustained ≥ `closed_confirm_count` × 1s | Panel dropped away; floor or car visible — door is closed | **Closed** |
+
+**Dead zone** (`open_distance_m` to `closed_min_distance_m`): resets both streak counters. Door is indeterminate while traversing this range.
+
+**Car parked inside:** A parked car roof registers as a far valid reading (e.g. 1.5m), which falls above `closed_min_distance_m` and correctly contributes to CLOSED detection rather than resetting it.
 
 ### Closed Detection Design Decision
 
-**Sensor range confirmed from bench test (2026-05-19):** 20mm minimum, ~1.38m stable maximum, sporadic NaN above ~1.4m, unreliable past ~1.5m.
-
-**Real install data (2026-05-20):**
-
-Full close-then-reopen cycle observed (door started open):
+**Real install data (2026-05-21, vertical bracket mount):**
 
 | Phase | Reading | Notes |
 |---|---|---|
-| Door open, stationary | ~0.67m stable | Sensor sees top panel ~67cm below ceiling |
-| Closing transition | 0.67m → 0.99m → NaN over ~3s | Panel dropping away from sensor |
-| Door fully closed | NaN sustained | Panel out of sensor range |
-| Opening transition | NaN → 0.99m → 0.67m over ~6s | Panel returning toward sensor |
-| Door open, stationary | ~0.67m stable | Same as open above |
-
-**Conclusion:** OPEN = ~0.67m (reliable, immediate). CLOSED = sustained NaN (reliable after 3s). Implemented as Option B (sustained NaN).
+| Door open, stationary | ~0.20m stable | Sensor looks straight down at door panel top |
+| Closing transition | 0.20m → increasing → ≥1.0m or NaN | Panel drops out of close range |
+| Door fully closed | NaN or ≥1.0m sustained | Panel out of close range; floor/car visible |
+| Opening transition | NaN/far → decreasing → ~0.20m | Panel rising back toward sensor |
+| Door open, stationary | ~0.20m stable | Same as open above |
 
 Calibrated values:
-- `open_distance_m: "0.75"` — ~0.704m measured + 5cm margin (sensor repositioned 2026-05-20)
-- `nan_closed_count: "6"` — 6 × 500ms = 3s sustained NaN → CLOSED
-
-**Option B — Sustained NaN for CLOSED detection:**
-After `nan_closed_count` consecutive NaN readings → CLOSED. The garage defaults to CLOSED on boot (normal physical state — low risk of incorrect assumption). No `had_valid_reading` guard is needed.
+- `open_distance_m: "0.30"` — ~0.20m measured + 10cm margin
+- `closed_min_distance_m: "1.00"` — readings ≥ 1.0m (or NaN) indicate closed
+- `open_confirm_count: "3"` — 3 × 1s consecutive readings ≤ 0.30m → OPEN
+- `closed_confirm_count: "6"` — 6 × 1s consecutive readings ≥ 1.0m or NaN → CLOSED
 
 ### V2 Calibration
 
@@ -129,39 +129,35 @@ If `0x29` is not listed, stop and check wiring before proceeding.
 
 **Step 2 — Read live distance**
 
-With the device running, open Home Assistant → Developer Tools → States and find the `Garage Door Distance` sensor entity. This updates every 500ms and is the most convenient calibration tool.
-
-Alternatively, watch the log stream:
-```
-[D][sensor:094]: 'Garage Door Distance': Sending state 0.18 m
-```
+Open Home Assistant → Developer Tools → States and find the `Garage Door Distance` sensor entity. This is the most convenient calibration tool.
 
 **Step 3 — Measure open distance**
 
-Open the door fully. Let the reading settle (a few seconds). Note the value — this is the distance from the sensor to the top of the door panel when retracted. Set:
+Open the door fully and let the reading settle. Note the value — this is the distance from the sensor straight down to the door panel top. Set:
 ```yaml
-open_distance_m: "<reading> + 0.05"   # add 5cm margin against vibration flicker
+open_distance_m: "<reading> + 0.10"   # add 10cm margin
 ```
 
 **Step 4 — Confirm closed-state reading**
 
-Close the door fully and watch the `Garage Door Distance` sensor in HA for 10–15 seconds. It should read NaN consistently (panel has dropped below sensor range). If it returns a valid distance, the sensor range is longer than expected — reassess the mounting position.
+Close the door fully. The sensor should read NaN or a large distance (floor or car roof). If it reads a short distance, the sensor is still seeing the door panel — check the bracket angle.
 
 **Step 5 — Reflash and verify**
 
 ```bash
-esphome run garage_door_v2.yaml   # OTA flash with updated substitutions
+esphome run garage_door_v2.yaml
 ```
-Trigger open and close from HA and confirm the cover entity transitions correctly through Opening → Open → Closing → Closed.
+Trigger open and close from HA and confirm the cover entity transitions correctly.
 
 ### V2 Key Config Facts
 
 - **Board:** `esp32-c3-devkitm-1`, `variant: esp32c3`, `framework: type: esp-idf`
 - **GPIO7:** SSR trigger (replaces GPIO17 from V1)
-- **GPIO1/GPIO3:** I2C SDA/SCL
-- **VL53L0X:** address 0x29 (default), `long_range: true`, 500ms update interval
-- Cover lambda replaces optimistic mode with threshold-based state
+- **GPIO1/GPIO3:** I2C SDA/SCL, **10kHz** (not faster — 1.4m ethernet cable causes data corruption at 100kHz)
+- **VL53L0X:** address 0x29 (default), `long_range: true`, 1s update interval
+- Cover uses dual-streak logic (`open_streak`, `closed_streak`) replacing optimistic mode
 - Raw distance published to HA as `Garage Door Distance` sensor (use for calibration)
+- **3D prints:** `3DPrint/Roof Bracket Vertical Mount.stl` — vertical sensor bracket (current); `3DPrint/Roof Bracket.stl` — original horizontal bracket (retired)
 
 ### ESP32-C3 WiFi Requirements
 
@@ -170,7 +166,7 @@ The C3 requires specific WiFi config to connect reliably — arduino framework a
 - **Framework must be `esp-idf`** (not arduino) — arduino framework has known WiFi instability on C3
 - **Disable WPA3 SAE** via sdkconfig: `CONFIG_ESP_WIFI_ENABLE_WPA3_SAE: "n"` — WPA3 negotiation causes connection failures on many routers
 - **`power_save_mode: none`** — power saving causes frequent disconnects
-- **`output_power: 8.5`** — full TX power can cause brownouts on the small board; 8.5 dBm is stable
+- **`output_power: 10`** — empirically tuned: marginal at 12.5, stable with margin at 10; device is at the edge of WiFi range so reducing further causes disconnects
 - **`fast_connect: true`** — skips full channel scan, connects to known AP directly
 - **`reboot_timeout: 15min`** — reboots if WiFi never connects (recovery from bad state)
 - **2.4 GHz only** — ESP32-C3 has no 5 GHz radio; SSID must be on 2.4 GHz band
