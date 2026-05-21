@@ -110,7 +110,7 @@ ESP32-C3 GPIO3    ──── VL53L0X SCL
 
 The sensor is ceiling-mounted via 1.4m of ethernet cable on a 3D-printed vertical bracket (`3DPrint/Roof Bracket Vertical Mount.stl`), pointing straight down at the top of the door panel.
 
-**I2C pull-ups:** The CJVL53L0XV2 breakout includes onboard 4.7kΩ pull-ups. Two additional 47kΩ resistors are fitted on the breadboard (SDA and SCL to 3.3V). In parallel with the onboard 4.7kΩ resistors the combined pull-up is ~4.3kΩ — negligible change, but provided for completeness. **I2C must be run at 10kHz** — the 1.4m ethernet cable has high capacitance; 100kHz causes data corruption that produces phantom distance readings without generating I2C bus errors.
+**I2C pull-ups:** The CJVL53L0XV2 does **not** include onboard pull-up resistors. Two 47kΩ resistors on the breadboard (SDA and SCL to 3.3V) are the only pull-ups in the circuit. 47kΩ is weak for a 1.4m cable run — if rebuilding, use 4.7kΩ instead, which gives adequate rise time with less risk of marginal operation. The 47kΩ values work at 10kHz but leave little margin. **I2C must be run at 10kHz** — the 1.4m ethernet cable has high capacitance; 100kHz causes data corruption that produces phantom distance readings without generating I2C bus errors.
 
 ---
 
