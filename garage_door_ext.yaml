@@ -1,0 +1,164 @@
+substitutions:
+  device_name: garage-door-ext
+  friendly_name: Garage Door-Ext
+
+  # ── Calibration ──────────────────────────────────────────────────────────────
+  # Sensor is on the ceiling, pointing DOWN at the top of the door panel.
+  # Door OPEN:   panel is up near the sensor → valid reading ~0.20m
+  # Door CLOSED: panel has dropped away     → ≥1.00m (floor/car) or NaN
+  #
+  # open_distance_m: threshold below which door is OPEN. Measured ~0.20m; +10cm margin.
+  # closed_min_distance_m: threshold above which door is CLOSED (covers parked car).
+  # open_confirm_count:  consecutive readings ≤ open_distance_m → OPEN.
+  # closed_confirm_count: consecutive readings ≥ closed_min_distance_m or NaN → CLOSED.
+  open_distance_m: "0.30"       # reads ~0.20m when open; +10cm margin
+  closed_min_distance_m: "1.00" # reads ≥1.0m (floor/car) or NaN when closed
+  open_confirm_count: "3"       # 3 × 1s = 3s sustained → OPEN
+  closed_confirm_count: "6"     # 6 × 1s = 6s sustained → CLOSED
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none
+  fast_connect: true
+  reboot_timeout: 15min
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: !secret ap_fallback_password
+
+captive_portal:
+
+logger:
+  level: DEBUG
+  logs:
+    sensor: WARN
+    vl53l0x: WARN
+
+api:
+  encryption:
+    key: !secret esphome_api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# ── Streak tracking ───────────────────────────────────────────────────────────
+# open_streak:   consecutive valid readings ≤ open_distance_m → OPEN
+# closed_streak: consecutive readings ≥ closed_min_distance_m OR NaN → CLOSED
+#   closed_streak accepts both NaN and far valid readings so a parked car
+#   (e.g. 1.5m) still contributes to CLOSED rather than resetting it.
+globals:
+  - id: open_streak
+    type: int
+    restore_value: false
+    initial_value: "0"
+  - id: closed_streak
+    type: int
+    restore_value: false
+    initial_value: "0"
+
+# ── I2C bus ──────────────────────────────────────────────────────────────────
+i2c:
+  sda: GPIO26
+  scl: GPIO27
+  frequency: 10kHz
+  scan: true
+
+# ── VL53L0X distance sensor ───────────────────────────────────────────────────
+# Ceiling mount, pointing down at door top panel.
+# Open reads ~0.20m (panel near sensor); closed reads NaN or ≥1.0m (floor/car).
+# EMA smooths valid readings. Dead zone 0.30m–1.00m = indeterminate (door in transit).
+sensor:
+  - platform: vl53l0x
+    name: "Garage Door Distance"
+    id: door_distance
+    address: 0x29
+    update_interval: 1s
+    long_range: true
+    filters:
+      - lambda: |-
+          static float avg = NAN;
+          static float last_pub = NAN;
+          static int nan_count = 0;
+          if (isnan(x)) {
+            nan_count++;
+            id(closed_streak)++;
+            id(open_streak) = 0;
+            if (nan_count == 2) { avg = NAN; last_pub = NAN; return x; }
+            return {};
+          }
+          nan_count = 0;
+          avg = isnan(avg) ? x : avg * 0.5f + x * 0.5f;
+          if (avg <= ${open_distance_m}) {
+            id(open_streak)++;
+            id(closed_streak) = 0;
+          } else if (avg >= ${closed_min_distance_m}) {
+            id(closed_streak)++;
+            id(open_streak) = 0;
+          } else {
+            id(open_streak) = 0;
+            id(closed_streak) = 0;
+          }
+          if (!isnan(last_pub) && fabsf(avg - last_pub) < 0.02f) return {};
+          last_pub = avg;
+          return avg;
+
+# ── SSR trigger ──────────────────────────────────────────────────────────────
+# GPIO18 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
+switch:
+  - platform: gpio
+    pin: GPIO18
+    id: garage_trigger
+    restore_mode: ALWAYS_OFF
+    internal: true
+
+# ── Pulse script ─────────────────────────────────────────────────────────────
+script:
+  - id: trigger_pulse
+    then:
+      - switch.turn_on: garage_trigger
+      - delay: 300ms
+      - switch.turn_off: garage_trigger
+
+# ── Garage door cover ────────────────────────────────────────────────────────
+# State logic:
+#   open_streak  ≥ open_confirm_count               → OPEN  (panel near sensor, ≤0.30m)
+#   closed_streak ≥ closed_confirm_count             → CLOSED (panel away, ≥1.0m or NaN)
+#   anything else                                   → indeterminate (transitioning)
+#
+# STOP BUTTON — confirmed 2026-05-20:
+# Marantec Comfort 280 cycle: Open → Stop → Close → Stop → Open.
+# After stop mid-travel, next impulse REVERSES — do not rely on stop + resume from HA.
+cover:
+  - platform: template
+    name: "Garage Door"
+    device_class: garage
+    lambda: |-
+      if (!id(door_distance).has_state()) {
+        return {};
+      }
+      if (id(open_streak) >= ${open_confirm_count}) {
+        return COVER_OPEN;
+      }
+      if (id(closed_streak) >= ${closed_confirm_count}) {
+        return COVER_CLOSED;
+      }
+      return {};
+    open_action:
+      - script.execute:
+          id: trigger_pulse
+    close_action:
+      - script.execute:
+          id: trigger_pulse
+    stop_action:
+      - script.execute:
+          id: trigger_pulse
