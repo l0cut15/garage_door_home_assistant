@@ -1,6 +1,13 @@
-# Garage Door Controller Home Assitant and HomeKit Integration
+# Garage Door Controller — Home Assistant and HomeKit Integration
 
-ESP32-C3 based smart garage door controller for the **Marantec Comfort 280** opener. Runs ESPHome firmware, integrates with Home Assistant, and is exposed to Apple HomeKit via Homebridge.
+Smart garage door controller for the **Marantec Comfort 280** opener. Runs ESPHome firmware, integrates with Home Assistant, and is exposed to Apple HomeKit via Homebridge.
+
+Two published hardware variants — pick the one that suits your install:
+
+| Variant | Firmware | Board | Notes |
+|---|---|---|---|
+| ESP32-C3 Super Mini | `garage_door_esp32-c3.yaml` | ESP32-C3 Super Mini | Compact; esp-idf framework |
+| ESP32U External Antenna | `garage_door_esp32.yaml` | ESP32U (ESP32dev) | External antenna for better range; Arduino framework |
 
 Fully local — no cloud dependency. Self-powered from the opener's own 24V DC auxiliary rail.
 
@@ -13,7 +20,6 @@ Fully local — no cloud dependency. Self-powered from the opener's own 24V DC a
 - Open / close / stop from Home Assistant dashboard or Apple Home
 - Appears as a native garage door accessory in HomeKit
 - Real-time door state via VL53L0X time-of-flight sensor (no door wiring required)
-- Bluetooth proxy — extends Home Assistant Bluetooth range
 - Galvanically isolated trigger (G3VM-61A1 MOSFET SSR)
 - Self-powered from Marantec 24V rail via buck converter
 
@@ -21,19 +27,19 @@ Fully local — no cloud dependency. Self-powered from the opener's own 24V DC a
 
 ## Hardware
 
-![ESP32-C3 board](c3-board.jpeg)
-
-| Component | Part | Notes |
-|---|---|---|
-| Microcontroller | ESP32-C3 Super Mini (`esp32-c3-devkitm-1`) | esp-idf framework |
-| Solid State Relay | OMRON G3VM-61A1 | SOP-4; galvanic isolation |
-| Current limit resistor | 220Ω | SSR LED drive ~10mA |
-| Buck converter | Mini 5605V (preset 5V) | 24V → 5V |
-| Distance sensor | CJVL53L0XV2 (VL53L0X breakout) | I2C, 3.3V, ceiling-mounted |
+| Component | Part | ESP32-C3 variant | ESP32U variant |
+|---|---|---|---|
+| Microcontroller | — | ESP32-C3 Super Mini (`esp32-c3-devkitm-1`) | ESP32U (`esp32dev`) |
+| Solid State Relay | OMRON G3VM-61A1 | SOP-4; galvanic isolation | SOP-4; galvanic isolation |
+| Current limit resistor | 220Ω | SSR LED drive ~10mA | SSR LED drive ~10mA |
+| Buck converter | Mini 5605V (preset 5V) | 24V → 5V | 24V → 5V |
+| Distance sensor | CJVL53L0XV2 (VL53L0X breakout) | I2C, 3.3V, ceiling-mounted | I2C, 3.3V, ceiling-mounted |
 
 ---
 
 ## Architecture
+
+### ESP32-C3 Super Mini
 
 ```
 Apple Home / Siri
@@ -42,7 +48,20 @@ Home Assistant
     ↕  ESPHome Native API (encrypted, local WiFi)
 ESP32-C3 Super Mini
     GPIO7  → 220Ω → G3VM-61A1 → Marantec XB03 terminals 1+2  (impulse trigger)
-    GPIO1 (SDA) / GPIO3 (SCL) → I2C → CJVL53L0XV2 ToF sensor (ceiling-mounted)
+    GPIO1 (SDA) / GPIO3 (SCL) → I2C 10kHz → CJVL53L0XV2 (ceiling-mounted)
+    5V  ← Mini 5605V buck converter ← Marantec XB03 terminal 3 (24V)
+```
+
+### ESP32U External Antenna
+
+```
+Apple Home / Siri
+    ↕  HomeKit (Homebridge)
+Home Assistant
+    ↕  ESPHome Native API (encrypted, local WiFi)
+ESP32U (esp32dev)
+    GPIO17 → 220Ω → G3VM-61A1 → Marantec XB03 terminals 1+2  (impulse trigger)
+    GPIO26 (SDA) / GPIO27 (SCL) → I2C 10kHz → CJVL53L0XV2 (ceiling-mounted)
     5V  ← Mini 5605V buck converter ← Marantec XB03 terminal 3 (24V)
 ```
 
@@ -92,7 +111,11 @@ python3 -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(3
 ### Flash
 
 ```bash
-esphome run garage_door_v2.yaml
+# ESP32-C3 Super Mini
+esphome run garage_door_esp32-c3.yaml
+
+# ESP32U External Antenna
+esphome run garage_door_esp32.yaml
 ```
 
 Subsequent updates are OTA over WiFi.
@@ -113,7 +136,8 @@ The [Homebridge addon](https://github.com/homebridge/homebridge-homeassistant) r
 ## Repository Structure
 
 ```
-garage_door_v2.yaml        # ESPHome firmware
+garage_door_esp32-c3.yaml  # ESP32-C3 Super Mini firmware
+garage_door_esp32.yaml     # ESP32U external antenna firmware
 hardware.md                # Bill of materials and wiring guide
 secrets.example.yaml       # Secrets template
 Board/                     # Fritzing layout files

@@ -4,52 +4,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Smart garage door controller for a **Marantec Comfort 280** opener. **V2 (ESP32-C3 Super Mini) is the current shipped version.** V1 (ESP32U protoboard) is a retired prototype — its firmware is frozen.
+Smart garage door controller for a **Marantec Comfort 280** opener. Two published firmware variants — both use VL53L0X ToF sensor for real open/closed state.
 
-V1 design rationale is in `garage_door_automation.md`. V2 design rationale is in `garage_door_v2_design.md`. All active work is in `garage_door_v2.yaml`.
+Design rationale is in `garage_door_v2_design.md`.
 
 ## Versions
 
-| Version | Status | Firmware | Description |
+| Variant | Firmware | Board | Framework |
 |---|---|---|---|
-| V1 | Prototype (retired) | `garage_door.yaml` | ESP32U protoboard — impulse trigger, optimistic cover state |
-| V2 | **Current** | `garage_door_v2.yaml` | ESP32-C3 Super Mini — VL53L0X ToF sensor, real open/closed state |
-
-## V1 Architecture (retired prototype — `garage_door.yaml` is frozen)
-
-```
-Apple Home / Siri
-    ↕ HomeKit (via Homebridge)
-Home Assistant  ←→  cover entity (device_class: garage)
-    ↕ ESPHome Native API (encrypted, local WiFi)
-ESP32U (ESPHome)
-    GPIO17 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
-    5V pin ← MP1584EN buck converter ← Marantec XB03 terminal 3 (24V, 50mA max), GND = terminal 1
-```
-
-Reed switch inputs (GPIO4/GPIO5) are **V2 scope** — not present in V1.
+| ESP32-C3 Super Mini | `garage_door_esp32-c3.yaml` | `esp32-c3-devkitm-1` | esp-idf |
+| ESP32U External Antenna | `garage_door_esp32.yaml` | `esp32dev` | arduino |
 
 ## ESPHome Commands
 
 ```bash
-# V1
-esphome run garage_door.yaml        # compile + OTA flash
-esphome logs garage_door.yaml       # stream device logs
+# ESP32-C3 Super Mini
+esphome run garage_door_esp32-c3.yaml
+esphome logs garage_door_esp32-c3.yaml
 
-# V2
-esphome run garage_door_v2.yaml
-esphome logs garage_door_v2.yaml
+# ESP32U External Antenna
+esphome run garage_door_esp32.yaml
+esphome logs garage_door_esp32.yaml
 ```
 
 `secrets.yaml` is required and not committed. It must define: `wifi_ssid`, `wifi_password`, `esphome_api_key`, `ota_password`, `ap_fallback_password`.
-
-## V1 ESPHome Config Facts
-
-- **Board:** `esp32: board: esp32dev` with `framework: type: arduino`
-- **GPIO17:** SSR trigger — pulse HIGH for 300ms to send an impulse to the Marantec
-- Cover uses `optimistic: true` + `assumed_state: true` — this is permanent for V1, not a placeholder
-- The trigger switch uses `restore_mode: ALWAYS_OFF` — it must never energise on boot
-- Bluetooth proxy is enabled (`active: true`)
 
 ## Critical Hardware Constraints
 
@@ -58,9 +36,11 @@ esphome logs garage_door_v2.yaml
 - Buck converter output must be confirmed at 5.0V ±0.2V before connecting to the ESP32.
 - All ESP32 GPIO are 3.3V — not 5V tolerant.
 
-## V2 Architecture
+## Architecture
 
-Board: **ESP32-C3 Super Mini** (`esp32-c3-devkitm-1`). Sensor: **CJVL53L0XV2** (VL53L0X breakout). Buck: **Mini 5605V**.
+Sensor: **CJVL53L0XV2** (VL53L0X breakout). Buck: **Mini 5605V**.
+
+### ESP32-C3 Super Mini (`garage_door_esp32-c3.yaml`)
 
 ```
 Apple Home / Siri
@@ -75,13 +55,30 @@ ESP32-C3 Super Mini (ESPHome)
     5V pin ← Mini 5605V buck converter ← Marantec XB03 terminal 3 (24V, 50mA max), GND = terminal 1
 ```
 
+### ESP32U External Antenna (`garage_door_esp32.yaml`)
+
+```
+Apple Home / Siri
+    ↕ HomeKit (via Homebridge)
+Home Assistant  ←→  cover entity (device_class: garage)
+    ↕ ESPHome Native API (encrypted, local WiFi)
+ESP32U / esp32dev (ESPHome)
+    GPIO17 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
+    GPIO26 (SDA) ┐
+    GPIO27 (SCL) ┘← I2C → CJVL53L0XV2 (ceiling-mounted, pointing down at door top)
+    3.3V pin → CJVL53L0XV2 VCC
+    5V pin ← Mini 5605V buck converter ← Marantec XB03 terminal 3 (24V, 50mA max), GND = terminal 1
+```
+
+**Pull-up note (ESP32U variant):** External 4.7kΩ pull-up resistors are not used — the CJVL53L0XV2 breakout's onboard pull-ups are sufficient. GPIO25 (formerly used as a 3.3V pull-up rail) is configured ALWAYS_OFF.
+
 **CJVL53L0XV2 wiring note:** Power the module from the C3 Mini's **3.3V pin**, not 5V. The module accepts both voltages, but if powered at 5V its SDA/SCL lines will be 5V logic — this will damage the C3 Mini. At 3.3V, I2C lines are directly compatible with no level shifting required.
 
 **Sensor cable:** The CJVL53L0XV2 is extended from the ESP32-C3 to the ceiling mount via 1.4m of ethernet cable. I2C is run at 10kHz — do not increase; at 100kHz the cable capacitance causes I2C data corruption that manifests as phantom distance readings (not bus errors).
 
 **Sensor mount:** The sensor is mounted on a 3D-printed vertical bracket (`3DPrint/Roof Bracket Vertical Mount.stl`) that positions it perpendicular to the ceiling, pointing straight down at the door panel. The previous horizontal ceiling mount caused the sensor to see the opener rail and drive mechanism when the door was closed, producing persistent phantom readings. The vertical bracket avoids this by narrowing the field of view to the door panel only.
 
-### V2 Door State Logic
+### Door State Logic
 
 The sensor is mounted vertically on the ceiling, pointing straight down at the top of the door panel.
 
@@ -95,7 +92,7 @@ The sensor is mounted vertically on the ceiling, pointing straight down at the t
 
 **Car parked inside:** A parked car roof registers as a far valid reading (e.g. 1.5m), which falls above `closed_min_distance_m` and correctly contributes to CLOSED detection rather than resetting it.
 
-### Closed Detection Design Decision
+### Calibration Data
 
 **Real install data (2026-05-21, vertical bracket mount):**
 
@@ -113,13 +110,13 @@ Calibrated values:
 - `open_confirm_count: "3"` — 3 × 1s consecutive readings ≤ 0.30m → OPEN
 - `closed_confirm_count: "6"` — 6 × 1s consecutive readings ≥ 1.0m or NaN → CLOSED
 
-### V2 Calibration
+### Calibration
 
 **Step 1 — Confirm sensor is detected**
 
 Flash the firmware and check logs immediately:
 ```bash
-esphome logs garage_door_v2.yaml
+esphome logs garage_door_esp32-c3.yaml   # or garage_door_esp32.yaml
 ```
 Look for the I2C scan output (logged once on boot due to `scan: true`):
 ```
@@ -145,17 +142,27 @@ Close the door fully. The sensor should read NaN or a large distance (floor or c
 **Step 5 — Reflash and verify**
 
 ```bash
-esphome run garage_door_v2.yaml
+esphome run garage_door_esp32-c3.yaml   # or garage_door_esp32.yaml
 ```
 Trigger open and close from HA and confirm the cover entity transitions correctly.
 
-### V2 Key Config Facts
+### Key Config Facts
 
+**ESP32-C3 variant (`garage_door_esp32-c3.yaml`)**
 - **Board:** `esp32-c3-devkitm-1`, `variant: esp32c3`, `framework: type: esp-idf`
-- **GPIO7:** SSR trigger (replaces GPIO17 from V1)
-- **GPIO1/GPIO3:** I2C SDA/SCL, **10kHz** (not faster — 1.4m ethernet cable causes data corruption at 100kHz)
+- **GPIO7:** SSR trigger
+- **GPIO1/GPIO3:** I2C SDA/SCL, **10kHz**
+
+**ESP32U variant (`garage_door_esp32.yaml`)**
+- **Board:** `esp32dev`, `framework: type: arduino`
+- **GPIO17:** SSR trigger
+- **GPIO26/GPIO27:** I2C SDA/SCL, **10kHz**
+- No external pull-ups — CJVL53L0XV2 onboard pull-ups only; GPIO25 is ALWAYS_OFF
+
+**Common to both**
 - **VL53L0X:** address 0x29 (default), `long_range: true`, 1s update interval
-- Cover uses dual-streak logic (`open_streak`, `closed_streak`) replacing optimistic mode
+- **I2C at 10kHz** — do not increase; cable capacitance causes data corruption at 100kHz
+- Cover uses dual-streak logic (`open_streak`, `closed_streak`)
 - Raw distance published to HA as `Garage Door Distance` sensor (use for calibration)
 - **3D prints:** `3DPrint/Roof Bracket Vertical Mount.stl` — vertical sensor bracket (current); `3DPrint/Roof Bracket.stl` — original horizontal bracket (retired)
 

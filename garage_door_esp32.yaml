@@ -11,10 +11,10 @@ substitutions:
   # closed_min_distance_m: threshold above which door is CLOSED (covers parked car).
   # open_confirm_count:  consecutive readings ≤ open_distance_m → OPEN.
   # closed_confirm_count: consecutive readings ≥ closed_min_distance_m or NaN → CLOSED.
-  open_distance_m: "0.30"       # reads ~0.20m when open; +10cm margin
+  open_distance_m: "0.25" # reads ~0.175m when open; +7.5cm margin
   closed_min_distance_m: "1.00" # reads ≥1.0m (floor/car) or NaN when closed
-  open_confirm_count: "3"       # 3 × 1s = 3s sustained → OPEN
-  closed_confirm_count: "6"     # 6 × 1s = 6s sustained → CLOSED
+  open_confirm_count: "3" # 3 × 1s = 3s sustained → OPEN
+  closed_confirm_count: "6" # 6 × 1s = 6s sustained → CLOSED
 
 esphome:
   name: ${device_name}
@@ -68,8 +68,8 @@ globals:
 
 # ── I2C bus ──────────────────────────────────────────────────────────────────
 i2c:
-  sda: GPIO26
-  scl: GPIO27
+  sda: GPIO27
+  scl: GPIO26
   frequency: 10kHz
   scan: true
 
@@ -120,13 +120,13 @@ switch:
   - platform: gpio
     pin: GPIO25
     id: i2c_pullup_ref
-    restore_mode: ALWAYS_ON
+    restore_mode: ALWAYS_OFF
     internal: true
 
-# ── SSR trigger ──────────────────────────────────────────────────────────────
-# GPIO18 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
+  # ── SSR trigger ──────────────────────────────────────────────────────────────
+  # GPIO18 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
   - platform: gpio
-    pin: GPIO18
+    pin: GPIO17
     id: garage_trigger
     restore_mode: ALWAYS_OFF
     internal: true
