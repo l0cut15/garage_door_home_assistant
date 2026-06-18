@@ -112,9 +112,19 @@ sensor:
           last_pub = avg;
           return avg;
 
+# ── I2C pull-up reference ─────────────────────────────────────────────────────
+# GPIO25 sources 3.3V for the 4.7kΩ I2C pull-up resistors on SDA/SCL.
+# ALWAYS_ON ensures the pin is HIGH before the I2C bus initialises (GPIO setup
+# priority 300 > I2C bus priority 250).
+switch:
+  - platform: gpio
+    pin: GPIO25
+    id: i2c_pullup_ref
+    restore_mode: ALWAYS_ON
+    internal: true
+
 # ── SSR trigger ──────────────────────────────────────────────────────────────
 # GPIO18 → 220Ω → G3VM-61A1 SSR → Marantec XB03 terminals 1+2 (GND+Pulse)
-switch:
   - platform: gpio
     pin: GPIO18
     id: garage_trigger
