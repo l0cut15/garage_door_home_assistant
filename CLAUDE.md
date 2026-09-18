@@ -171,12 +171,11 @@ Trigger open and close from HA and confirm the cover entity transitions correctl
 The C3 requires specific WiFi config to connect reliably — arduino framework and default wifi settings do not work:
 
 - **Framework must be `esp-idf`** (not arduino) — arduino framework has known WiFi instability on C3
-- **Disable WPA3 SAE** via sdkconfig: `CONFIG_ESP_WIFI_ENABLE_WPA3_SAE: "n"` — WPA3 negotiation causes connection failures on many routers
 - **`power_save_mode: none`** — power saving causes frequent disconnects
-- **`output_power: 10`** — empirically tuned: marginal at 12.5, stable with margin at 10; device is at the edge of WiFi range so reducing further causes disconnects
-- **`fast_connect: true`** — skips full channel scan, connects to known AP directly
-- **`reboot_timeout: 15min`** — reboots if WiFi never connects (recovery from bad state)
+- **`output_power: 8.5dB`** — bench-tested 2026-09-18 as sufficient; **not yet re-verified at the garage-mounted, edge-of-range install location**. If disconnects return once mounted, try raising back toward the previously-tuned `10`.
 - **2.4 GHz only** — ESP32-C3 has no 5 GHz radio; SSID must be on 2.4 GHz band
+
+**Reverted 2026-09-18:** `CONFIG_ESP_WIFI_ENABLE_WPA3_SAE: "n"`, `fast_connect: true`, and `reboot_timeout: 15min` were removed after isolating the sdkconfig WPA3-SAE override as the cause of a connection failure during bench testing. `fast_connect`/`reboot_timeout` weren't implicated but were dropped along with it to match the confirmed-working bench config. If the router's security mode changes back to enforcing WPA3/PMF, the SAE override may need to be reinstated.
 
 ### Stop Button Behaviour (confirmed 2026-05-20)
 
