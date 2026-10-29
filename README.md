@@ -11,7 +11,7 @@ Two published hardware variants — pick the one that suits your install:
 
 Fully local — no cloud dependency. Self-powered from the opener's own 24V DC auxiliary rail.
 
-![Home Assistant](ha_module_example.jpeg)
+![Board](ha_module_example.jpeg)
 
 ---
 
@@ -26,6 +26,8 @@ Fully local — no cloud dependency. Self-powered from the opener's own 24V DC a
 ---
 
 ## Hardware
+
+![Home Assistant](sample-board-v2.jpeg)
 
 | Component | Part | ESP32-C3 variant | ESP32U variant |
 |---|---|---|---|
